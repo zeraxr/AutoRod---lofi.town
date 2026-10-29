@@ -29,8 +29,15 @@ class AutoFisherBot:
             start_time = time.time()
             frame = self.screen_processor.capture_frame()
 
+            # Prioridad 1: Jugar el minijuego de la rueda
             if self.screen_processor.analyze_skill_check(frame):
                 self.action_controller.click_fishing_button()
-                time.sleep(2)  # Cooldown tras pescar
+                time.sleep(0.1)  # Pequeño delay para no spamear clics dentro de la misma zona verde
 
+            # Prioridad 2: Lanzar la caña o recoger si aparecen los botones
+            elif self.screen_processor.detect_action_buttons(frame):
+                self.action_controller.click_fishing_button()
+                time.sleep(1.5)  # Esperar a que la animación de lanzar termine
+
+            # Mantener el loop a ~60 FPS
             time.sleep(max(0, (1 / 60) - (time.time() - start_time)))
