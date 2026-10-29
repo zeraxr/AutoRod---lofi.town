@@ -1,0 +1,22 @@
+# Entornos virtuales
+venv/
+env/
+.env
+
+# PyCharm y configuraciones de IDE
+.idea/
+.vscode/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos multimedia temporales (capturas de prueba)
+*.jpg
+*.png
+!assets/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
