@@ -9,7 +9,7 @@ class ScreenProcessor:
     def __init__(self, monitor_region=None):
         self.sct = mss.mss()
         # REGION DE CAPTURA: (top = Y, left = X)
-        self.region = monitor_region or {"top": 200, "left": 750, "width": 300, "height": 450}
+        self.region = monitor_region or {"top": 200, "left": 880, "width": 350, "height": 450}
 
         # --- COLORES HSV ---
         self.lower_green = np.array([35, 50, 150])
