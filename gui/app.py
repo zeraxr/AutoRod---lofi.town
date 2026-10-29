@@ -51,15 +51,16 @@ class AutoRodGUI:
         self.status_label.config(text="Estado: Vista Previa", foreground="blue")
         self.start_btn.config(state=tk.DISABLED)
         self.preview_btn.config(state=tk.DISABLED)
-
-        # Ejecutamos la vista previa en un hilo para que la ventanita de Tkinter no se congele
         threading.Thread(target=self._run_preview_thread, daemon=True).start()
 
     def _run_preview_thread(self):
-        # Llama a OpenCV (esto abrirá una ventana nueva)
+        # Abre la ventana de OpenCV y se queda aquí hasta que la cierres
         self.bot.screen_processor.show_preview()
 
-        # Cuando el usuario presione 'q' y se cierre la ventana, reactivamos los botones
+        # Una vez cerrada, le decimos a Tkinter que restaure los botones de forma segura
+        self.root.after(0, self._restore_ui)
+
+    def _restore_ui(self):
         self.status_label.config(text="Estado: Detenido", foreground="red")
         self.start_btn.config(state=tk.NORMAL)
         self.preview_btn.config(state=tk.NORMAL)

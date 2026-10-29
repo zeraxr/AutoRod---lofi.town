@@ -9,7 +9,7 @@ class ScreenProcessor:
     def __init__(self, monitor_region=None):
         self.sct = mss.mss()
         # REGION DE CAPTURA: (top = Y, left = X)
-        self.region = monitor_region or {"top": 300, "left": 600, "width": 600, "height": 600}
+        self.region = monitor_region or {"top": 200, "left": 750, "width": 300, "height": 450}
 
         # --- COLORES HSV ---
         self.lower_green = np.array([35, 50, 150])
@@ -43,18 +43,20 @@ class ScreenProcessor:
         return False
 
     def show_preview(self):
-        """Muestra en vivo lo que el bot está viendo. Presiona 'q' para cerrar."""
-        print("[Visión] Abriendo vista previa. Presiona 'q' en la ventana para salir.")
+        """Muestra en vivo lo que el bot está viendo. Cierra con 'Q' o la 'X'."""
+        window_name = "AutoRod - Vista Previa"
+        cv2.namedWindow(window_name)
+
         while True:
-            # Capturamos el frame en tiempo real
             frame = self.capture_frame()
+            cv2.imshow(window_name, frame)
 
-            # Mostramos la ventana de OpenCV
-            cv2.imshow("AutoRod - Vista Previa (Presiona Q para salir)", frame)
-
-            # cv2.waitKey(1) actualiza la ventana y espera 1ms. Si la tecla es 'q', rompemos el ciclo.
+            # Romper si se presiona la tecla 'Q'
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-        # Cerramos la ventana de OpenCV al terminar
+            # Romper si el usuario cierra la ventana con la 'X'
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+
         cv2.destroyAllWindows()
