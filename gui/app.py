@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import threading
 from core.bot import AutoFisherBot
 
 
@@ -9,7 +10,7 @@ class AutoRodGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("AutoRod Pro")
-        self.root.geometry("300x150")
+        self.root.geometry("320x150")  # Ampliamos un poco el ancho para el tercer botón
         self.root.resizable(False, False)
 
         self.bot = AutoFisherBot()
@@ -29,14 +30,36 @@ class AutoRodGUI:
         self.stop_btn = ttk.Button(button_frame, text="Detener", command=self.stop_bot, state=tk.DISABLED)
         self.stop_btn.grid(row=0, column=1, padx=5)
 
+        self.preview_btn = ttk.Button(button_frame, text="Ver Región", command=self.show_preview)
+        self.preview_btn.grid(row=0, column=2, padx=5)
+
     def start_bot(self):
         self.bot.start()
         self.status_label.config(text="Estado: Escaneando...", foreground="green")
         self.start_btn.config(state=tk.DISABLED)
         self.stop_btn.config(state=tk.NORMAL)
+        self.preview_btn.config(state=tk.DISABLED)  # Desactivar vista previa mientras pesca
 
     def stop_bot(self):
         self.bot.stop()
         self.status_label.config(text="Estado: Detenido", foreground="red")
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
+        self.preview_btn.config(state=tk.NORMAL)
+
+    def show_preview(self):
+        self.status_label.config(text="Estado: Vista Previa", foreground="blue")
+        self.start_btn.config(state=tk.DISABLED)
+        self.preview_btn.config(state=tk.DISABLED)
+
+        # Ejecutamos la vista previa en un hilo para que la ventanita de Tkinter no se congele
+        threading.Thread(target=self._run_preview_thread, daemon=True).start()
+
+    def _run_preview_thread(self):
+        # Llama a OpenCV (esto abrirá una ventana nueva)
+        self.bot.screen_processor.show_preview()
+
+        # Cuando el usuario presione 'q' y se cierre la ventana, reactivamos los botones
+        self.status_label.config(text="Estado: Detenido", foreground="red")
+        self.start_btn.config(state=tk.NORMAL)
+        self.preview_btn.config(state=tk.NORMAL)
