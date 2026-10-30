@@ -1,75 +1,91 @@
 import mss
 import cv2
 import numpy as np
+import os
 
 
 class ScreenProcessor:
     def __init__(self, monitor_region=None):
         self.sct = mss.mss()
+        # Ajusta esta región si es necesario para encuadrar todo
         self.region = monitor_region or {"top": 200, "left": 880, "width": 350, "height": 450}
 
-        self.lower_green = np.array([35, 50, 150])
-        self.upper_green = np.array([55, 150, 255])
+        # --- 1. CARGAR TEMPLATES DE ACCIÓN (Lanzar/Recoger) ---
+        self.action_templates = []
+        for file in ["template_cast.png", "template_reel.png"]:
+            if os.path.exists(file):
+                img = cv2.imread(file, cv2.IMREAD_COLOR)
+                self.action_templates.append({"name": file, "image": img})
+            else:
+                print(f"[Aviso] No se encontró {file}")
 
-        self.lower_needle = np.array([0, 150, 150])
-        self.upper_needle = np.array([15, 255, 255])
-
-        self.lower_text = np.array([0, 0, 240])
-        self.upper_text = np.array([180, 15, 255])
+        # --- 2. CARGAR TEMPLATE DEL MINIJUEGO (Aguja sobre verde) ---
+        self.minigame_template = None
+        if os.path.exists("template_minigame.png"):
+            self.minigame_template = cv2.imread("template_minigame.png", cv2.IMREAD_COLOR)
+        else:
+            print("[Aviso] No se encontró template_minigame.png")
 
     def capture_frame(self):
         img = np.array(self.sct.grab(self.region))
         return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
     def analyze_skill_check(self, frame):
-        hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask_green = cv2.inRange(hsv_frame, self.lower_green, self.upper_green)
-        mask_needle = cv2.inRange(hsv_frame, self.lower_needle, self.upper_needle)
+        """Busca el recorte exacto de la aguja tocando lo verde."""
+        if self.minigame_template is None:
+            return False
 
-        overlap = cv2.bitwise_and(mask_green, mask_needle)
-        if cv2.countNonZero(overlap) > 15:
+        res = cv2.matchTemplate(frame, self.minigame_template, cv2.TM_CCOEFF_NORMED)
+        # 0.85 = 85% de similitud. Es alto para evitar clics accidentales.
+        if len(np.where(res >= 0.85)[0]) > 0:
             return True
         return False
 
     def detect_action_buttons(self, frame):
-        hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask_text = cv2.inRange(hsv_frame, self.lower_text, self.upper_text)
-        if cv2.countNonZero(mask_text) > 300:
-            return True
+        """Busca los botones CAST o REEL."""
+        if not self.action_templates:
+            return False
+
+        for tmpl in self.action_templates:
+            res = cv2.matchTemplate(frame, tmpl["image"], cv2.TM_CCOEFF_NORMED)
+            if len(np.where(res >= 0.8)[0]) > 0:
+                return True
         return False
 
     def show_preview(self):
-        window_name = "AutoRod - Vista Previa (Rayos X)"
+        window_name = "AutoRod - Vista Previa (Patrones SOTA)"
         cv2.namedWindow(window_name)
 
         while True:
             frame = self.capture_frame()
-            hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-            # --- RAYOS X PARA EL BOTON ---
-            mask_text = cv2.inRange(hsv_frame, self.lower_text, self.upper_text)
-            pixels_text = cv2.countNonZero(mask_text)
-            frame[mask_text > 0] = [255, 0, 0]  # Lo que detecte como botón, lo pinta Azul
+            # --- DIAGNÓSTICO DE BOTONES DE ACCIÓN ---
+            for tmpl in self.action_templates:
+                res = cv2.matchTemplate(frame, tmpl["image"], cv2.TM_CCOEFF_NORMED)
+                loc = np.where(res >= 0.8)
+                h, w = tmpl["image"].shape[:2]
 
-            if pixels_text > 300:
-                cv2.putText(frame, f"BOTON VISTO: {pixels_text}px", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                            (255, 0, 0), 2)
+                for pt in zip(*loc[::-1]):
+                    cv2.rectangle(frame, pt, (pt[0] + w, pt[1] + h), (255, 0, 0), 2)
+                    cv2.putText(frame, tmpl["name"], (pt[0], pt[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
-            # --- RAYOS X PARA EL MINIJUEGO ---
-            mask_green = cv2.inRange(hsv_frame, self.lower_green, self.upper_green)
-            mask_needle = cv2.inRange(hsv_frame, self.lower_needle, self.upper_needle)
-            overlap = cv2.bitwise_and(mask_green, mask_needle)
-            pixels_overlap = cv2.countNonZero(overlap)
+            # --- DIAGNÓSTICO DEL MINIJUEGO ---
+            if self.minigame_template is not None:
+                res = cv2.matchTemplate(frame, self.minigame_template, cv2.TM_CCOEFF_NORMED)
+                loc = np.where(res >= 0.85)
+                h, w = self.minigame_template.shape[:2]
 
-            frame[overlap > 0] = [255, 0, 255]  # Lo que detecte superpuesto, lo pinta Magenta
+                match_count = len(loc[0])
+                for pt in zip(*loc[::-1]):
+                    # Dibuja un rectángulo Magenta justo donde encaje la aguja
+                    cv2.rectangle(frame, pt, (pt[0] + w, pt[1] + h), (255, 0, 255), 2)
 
-            if pixels_overlap > 15:
-                cv2.putText(frame, f"¡CLIC! AGUJA EN VERDE: {pixels_overlap}px", (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6, (255, 0, 255), 2)
+                if match_count > 0:
+                    cv2.putText(frame, "¡CLIC! PATRON PERFECTO", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255),
+                                2)
 
             cv2.imshow(window_name, frame)
 
-            # Cerramos esta ventana con 'x' para no chocar con el apagado global
             if cv2.waitKey(1) & 0xFF == ord('x'):
                 break
             if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
