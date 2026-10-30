@@ -4,10 +4,10 @@ import numpy as np
 import os
 import sys
 
+
 def resource_path(relative_path):
     """Obtiene la ruta absoluta, funciona en desarrollo y dentro del .exe de PyInstaller"""
     try:
-        # PyInstaller guarda los archivos temporales en sys._MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
@@ -17,10 +17,28 @@ def resource_path(relative_path):
 class ScreenProcessor:
     def __init__(self, monitor_region=None):
         self.sct = mss.mss()
-        # Ajusta esta región si es necesario para encuadrar todo
-        self.region = monitor_region or {"top": 200, "left": 880, "width": 350, "height": 450}
+        monitor = self.sct.monitors[1]
 
-        # --- 1. CARGAR TEMPLATES DE ACCIÓN ---
+        # 1. Obtener la resolución actual del usuario
+        screen_w = monitor["width"]
+        screen_h = monitor["height"]
+
+        # 2. Calcular la proporción basada en tu monitor original (1920x1080)
+        ratio_x = screen_w / 1920
+        ratio_y = screen_h / 1080
+
+        # 3. Aplicar las coordenadas matemáticas proporcionales
+        self.region = monitor_region or {
+            "top": int(200 * ratio_y),
+            "left": int(880 * ratio_x),
+            "width": int(350 * ratio_x),
+            "height": int(450 * ratio_y)
+        }
+
+        # 4. Umbral matemático para la tarjeta (10% del área capturada)
+        self.white_threshold = int(self.region["width"] * self.region["height"] * 0.10)
+
+        # --- CARGAR TEMPLATES DE ACCIÓN ---
         self.action_templates = []
         for file in ["template_cast.png", "template_reel.png"]:
             path = resource_path(f"materials/{file}")
@@ -30,7 +48,7 @@ class ScreenProcessor:
             else:
                 print(f"[Aviso] No se encontró {path}")
 
-        # --- 2. CARGAR TEMPLATE DEL MINIJUEGO ---
+        # --- CARGAR TEMPLATE DEL MINIJUEGO ---
         self.minigame_template = None
         minigame_path = resource_path("materials/template_minigame.png")
         if os.path.exists(minigame_path):
@@ -43,7 +61,6 @@ class ScreenProcessor:
         return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
     def analyze_skill_check(self, frame):
-        """Busca el recorte exacto de la aguja tocando lo verde."""
         if self.minigame_template is None:
             return False
 
@@ -53,7 +70,6 @@ class ScreenProcessor:
         return False
 
     def detect_action_buttons(self, frame):
-        """Busca los botones CAST o REEL."""
         if not self.action_templates:
             return False
 
@@ -64,21 +80,19 @@ class ScreenProcessor:
         return False
 
     def detect_reward_card(self, frame):
-        """Detecta una gran masa de píxeles blancos (la tarjeta del pescado)."""
         hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        # Rango para blanco puro
         lower_white = np.array([0, 0, 240])
         upper_white = np.array([180, 15, 255])
         mask_white = cv2.inRange(hsv_frame, lower_white, upper_white)
 
-        # Si la tarjeta cubre gran parte de la pantalla (ej. > 15,000 píxeles blancos)
-        if cv2.countNonZero(mask_white) > 15000:
+        # Usamos el umbral dinámico calculado en el __init__
+        if cv2.countNonZero(mask_white) > self.white_threshold:
             return True
         return False
 
     def show_preview(self):
         window_name = "AutoRod - Vista Previa (Patrones SOTA)"
-        cv2.namedWindow(window_name)
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
         while True:
             frame = self.capture_frame()
@@ -88,8 +102,9 @@ class ScreenProcessor:
             mask_white = cv2.inRange(hsv_frame, np.array([0, 0, 240]), np.array([180, 15, 255]))
             pixels_white = cv2.countNonZero(mask_white)
 
-            if pixels_white > 15000:
-                cv2.putText(frame, f"TARJETA DETECTADA! ({pixels_white}px)", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+            if pixels_white > self.white_threshold:
+                cv2.putText(frame, f"TARJETA! ({pixels_white}/{self.white_threshold}px)", (10, 90),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                             (0, 255, 255), 2)
 
             # --- DIAGNÓSTICO DE BOTONES DE ACCIÓN ---
@@ -100,7 +115,6 @@ class ScreenProcessor:
 
                 for pt in zip(*loc[::-1]):
                     cv2.rectangle(frame, pt, (pt[0] + w, pt[1] + h), (255, 0, 0), 2)
-                    # Línea corregida (pt[1] - 10)
                     cv2.putText(frame, tmpl["name"], (pt[0], pt[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
             # --- DIAGNÓSTICO DEL MINIJUEGO ---
@@ -111,4 +125,17 @@ class ScreenProcessor:
 
                 match_count = len(loc[0])
                 for pt in zip(*loc[::-1]):
-                    cv2.rectangle
+                    cv2.rectangle(frame, pt, (pt[0] + w, pt[1] + h), (255, 0, 255), 2)
+
+                if match_count > 0:
+                    cv2.putText(frame, "¡CLIC! PATRON PERFECTO", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255),
+                                2)
+
+            cv2.imshow(window_name, frame)
+
+            if cv2.waitKey(1) & 0xFF == ord('x'):
+                break
+            if cv2.getWindowProperty(window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+
+        cv2.destroyAllWindows()
