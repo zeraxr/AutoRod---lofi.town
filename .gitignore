@@ -15,8 +15,10 @@ __pycache__/
 # Archivos multimedia temporales (capturas de prueba)
 *.jpg
 *.png
-!assets/
+!materials/
 
 # Archivos del sistema
 .DS_Store
 Thumbs.db
+
+.venv/
