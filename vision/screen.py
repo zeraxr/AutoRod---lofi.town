@@ -36,8 +36,8 @@ class ScreenProcessor:
             return False
 
         res = cv2.matchTemplate(frame, self.minigame_template, cv2.TM_CCOEFF_NORMED)
-        # 0.85 = 85% de similitud. Es alto para evitar clics accidentales.
-        if len(np.where(res >= 0.85)[0]) > 0:
+        # Subimos el umbral a 0.97 (97%). Obliga a que el fondo claro también coincida perfectamente.
+        if len(np.where(res >= 0.97)[0]) > 0:
             return True
         return False
 
@@ -67,22 +67,22 @@ class ScreenProcessor:
 
                 for pt in zip(*loc[::-1]):
                     cv2.rectangle(frame, pt, (pt[0] + w, pt[1] + h), (255, 0, 0), 2)
+                    # Error tipográfico corregido en la siguiente línea: (pt[1] - 10)
                     cv2.putText(frame, tmpl["name"], (pt[0], pt[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
             # --- DIAGNÓSTICO DEL MINIJUEGO ---
             if self.minigame_template is not None:
                 res = cv2.matchTemplate(frame, self.minigame_template, cv2.TM_CCOEFF_NORMED)
-                loc = np.where(res >= 0.85)
+                # Aplicamos el mismo umbral ultra estricto en la vista previa
+                loc = np.where(res >= 0.97)
                 h, w = self.minigame_template.shape[:2]
 
                 match_count = len(loc[0])
                 for pt in zip(*loc[::-1]):
-                    # Dibuja un rectángulo Magenta justo donde encaje la aguja
                     cv2.rectangle(frame, pt, (pt[0] + w, pt[1] + h), (255, 0, 255), 2)
 
                 if match_count > 0:
-                    cv2.putText(frame, "¡CLIC! PATRON PERFECTO", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255),
-                                2)
+                    cv2.putText(frame, "¡CLIC! PATRON PERFECTO", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
 
             cv2.imshow(window_name, frame)
 
