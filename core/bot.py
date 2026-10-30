@@ -30,12 +30,19 @@ class AutoFisherBot:
             # Prioridad 1: Jugar el minijuego de la rueda
             if self.screen_processor.analyze_skill_check(frame):
                 self.action_controller.click_fishing_button()
-                time.sleep(0.05)  # Micro-sueño vital para evitar Spamming de hardware
+                time.sleep(0.05)
 
-            # Prioridad 2: Lanzar la caña o recoger si aparecen los botones
+            # Prioridad 2: ¡Saltar la tarjeta del pescado!
+            elif self.screen_processor.detect_reward_card(frame):
+                # ESPERA CLAVE: Darle 0.5 segundos al juego para que termine la animación de la tarjeta
+                time.sleep(0.5)
+                self.action_controller.spam_click(5)  # Lanza 5 clics firmes
+                time.sleep(0.5)  # Espera a que la tarjeta desaparezca antes de continuar
+
+            # Prioridad 3: Lanzar la caña o recoger
             elif self.screen_processor.detect_action_buttons(frame):
                 self.action_controller.click_fishing_button()
-                time.sleep(0.3)  # Espera corta para reaccionar rápido a la rueda
+                time.sleep(0.3)
 
-            # Mantener el loop a ~60 FPS
+                # Mantener el loop a ~60 FPS
             time.sleep(max(0, (1 / 60) - (time.time() - start_time)))
