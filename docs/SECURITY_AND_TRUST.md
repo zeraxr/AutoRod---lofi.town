@@ -78,7 +78,7 @@ SmartScreen suele mostrar una ventana azul con el texto *"Windows protegió su P
 ### Paso 2: Verificar la Integridad del Archivo (SHA-256)
 Abre PowerShell en la carpeta donde descargaste el instalador o el archivo comprimido y ejecuta:
 ```powershell
-Get-FileHash .\AutoRod-v2.0.0-Setup.exe -Algorithm SHA256
+Get-FileHash .\AutoRod-Setup.exe -Algorithm SHA256
 ```
 Compara el código devuelto con el publicado en el archivo `SHA256SUMS.txt` en la pestaña de *Releases* de GitHub. Si coinciden, el archivo es 100% auténtico e inalterado.
 

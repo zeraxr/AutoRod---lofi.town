@@ -18,7 +18,7 @@ class OpenCVAnnotator(IDiagnosticsRenderer):
 
     def render(self, frame: DiagnosticFrame) -> bytes:
         # 1. Recuperar matriz BGR desde el ImagePayload puro
-        img = payload_to_ndarray(frame.payload).copy()
+        img = payload_to_ndarray(frame.payload)
         orig_h, orig_w = img.shape[:2]
 
         # 2. Calcular factor de escala para ajuste perfecto al Canvas / Image
@@ -70,9 +70,15 @@ class OpenCVAnnotator(IDiagnosticsRenderer):
             )
             y_offset += 20
 
-        # 5. Codificar en buffer binario (PNG nativo de Flutter/Flet o PPM)
+        # 5. Codificar en buffer binario (JPEG optimizado de baja latencia o PNG)
         ext = f".{self._format}"
-        success, buffer = cv2.imencode(ext, scaled_img)
+        encode_params: list[int] = []
+        if self._format in ("jpg", "jpeg"):
+            encode_params = [cv2.IMWRITE_JPEG_QUALITY, 85]
+        elif self._format == "png":
+            encode_params = [cv2.IMWRITE_PNG_COMPRESSION, 3]
+
+        success, buffer = cv2.imencode(ext, scaled_img, encode_params)
         if not success:
             raise RuntimeError(f"Fallo crítico al codificar fotograma a formato {self._format}.")
 

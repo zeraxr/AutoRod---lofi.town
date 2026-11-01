@@ -38,7 +38,7 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     configure_sota_logging()
     config: AppConfig = load_config(config_path)
     logger.info(
-        "[BOOTSTRAP] AutoRod SOTA v2.0 iniciado | Monitor: %d | FPS: %d | Visión: %s | Entrada: %s",
+        "[BOOTSTRAP] AutoRod iniciado | Monitor: %d | FPS: %d | Visión: %s | Entrada: %s",
         config.monitor_index,
         config.target_fps,
         config.vision_strategy,
@@ -79,7 +79,7 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
 
     # 4. Diagnósticos Visuales No Bloqueantes ('Rayos X') en formato PNG para Flutter/Flet
     diag_sink = QueueDiagnosticsSink(maxsize=2)
-    diag_renderer = OpenCVAnnotator(target_size=(640, 480), format="png")
+    diag_renderer = OpenCVAnnotator(target_size=(640, 480), format="jpeg")
 
     # 5. Caso de Uso Autónomo: Mover ratón al objetivo y cliquear
     task = FindAndClickTask(click_cooldown_s=0.35)

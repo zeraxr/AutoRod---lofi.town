@@ -15,6 +15,8 @@ from autorod.infrastructure.ui.flet.components.theme_studio_view import FletThem
 from autorod.infrastructure.ui.flet.components.metric_card import FletMetricCard
 from autorod.infrastructure.ui.flet.components.telemetry_view import FletTelemetryView
 from autorod.infrastructure.ui.flet.components.viewport_view import FletDiagnosticsViewport
+from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleBar
+from autorod.infrastructure.updater.github_checker import UpdateInfo
 from autorod.infrastructure.ui.flet.utils import (
     safe_update,
     get_control_page,
@@ -154,6 +156,43 @@ class TestFletUIArchitecture(unittest.TestCase):
         # safe_update no debe lanzar RuntimeError
         safe_update(c)
         safe_update(None)
+
+    def test_custom_title_bar_name_omits_v2_and_handles_updates(self) -> None:
+        """Verifica que la barra personalizada muestre 'AutoRod' sin 'v2.0' y gestione el botón de update."""
+        closed = False
+        def _on_close() -> None:
+            nonlocal closed
+            closed = True
+
+        tb = FletCustomTitleBar(
+            page=None,
+            on_close=_on_close,
+            theme_manager=self.theme_mgr
+        )
+        # 1. El nombre del programa debe ser 'AutoRod' y NO incluir 'v2.0'
+        self.assertEqual(tb._title_text.value, "AutoRod")
+        self.assertNotIn("v2.0", tb._title_text.value)
+
+        # 2. Inicialmente el botón de actualización debe estar oculto
+        self.assertFalse(tb._update_button.visible)
+
+        # 3. Al recibir una actualización, se activa y muestra el tag
+        info = UpdateInfo(
+            has_update=True,
+            latest_version="v2.1.0",
+            current_version="2.0.0",
+            release_name="AutoRod v2.1.0",
+            release_notes="Notas de prueba",
+            html_url="https://github.com/zeraxr/AutoRod",
+            download_url="https://github.com/zeraxr/AutoRod"
+        )
+        tb.set_update_available(info)
+        self.assertTrue(tb._update_button.visible)
+        self.assertIn("v2.1.0", tb._update_btn_text.value)
+
+        # 4. Botón de cierre dispara el callback
+        tb._on_close()
+        self.assertTrue(closed)
 
     def test_close_app_window_handles_none_gracefully(self) -> None:
         """Verifica que close_app_window con None o sin ventana no lance excepciones."""

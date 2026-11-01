@@ -9,7 +9,12 @@ from autorod.application.use_cases.find_and_click import FindAndClickTask
 class TestFishingCycleTask(unittest.TestCase):
     def setUp(self) -> None:
         self.fsm = FishingStateMachine(minigame_timeout_s=5.0, card_timeout_s=3.0)
-        self.task = FindAndClickTask(click_cooldown_s=0.0, state_machine=self.fsm)
+        self.task = FindAndClickTask(
+            click_cooldown_s=0.0,
+            minigame_cooldown_s=0.0,
+            card_cooldown_s=0.0,
+            state_machine=self.fsm
+        )
 
     def _make_result(self, strategy_id: str, found: bool = True, x: int = 100, y: int = 200) -> MatchResult:
         return MatchResult(
@@ -43,7 +48,7 @@ class TestFishingCycleTask(unittest.TestCase):
         self.assertEqual(len(commands), 0)
         self.assertEqual(self.task.current_state, FishingState.SCANNING)
 
-    def test_full_successful_fishing_cycle(self) -> None:
+    def test_full_successful_fishing_cycle_with_multi_click_card_dismiss(self) -> None:
         # 1. Cast
         cmds_cast = self.task.evaluate(self._make_result("cast_button_detected"))
         self.assertEqual(len(cmds_cast), 3)
@@ -69,9 +74,19 @@ class TestFishingCycleTask(unittest.TestCase):
         self.assertEqual(len(cmds_hit2), 3)
         self.assertEqual(self.task.current_state, FishingState.MINIGAME)
 
-        # 6. Fish caught! Blank card appears -> clicks to dismiss and transitions back to SCANNING!
-        cmds_card = self.task.evaluate(self._make_result("blank_card_detected"))
-        self.assertEqual(len(cmds_card), 3)
+        # 6. Fish caught! Blank card appears -> enters CARD_DISMISS and clicks #1
+        cmds_card1 = self.task.evaluate(self._make_result("blank_card_detected"))
+        self.assertEqual(len(cmds_card1), 3)
+        self.assertEqual(self.task.current_state, FishingState.CARD_DISMISS)
+
+        # 7. Card is still animating -> clicks #2 to skip flip animation
+        cmds_card2 = self.task.evaluate(self._make_result("blank_card_detected"))
+        self.assertEqual(len(cmds_card2), 3)
+        self.assertEqual(self.task.current_state, FishingState.CARD_DISMISS)
+
+        # 8. Card is dismissed and disappears -> transitions back to SCANNING!
+        cmds_gone = self.task.evaluate(self._make_result("scanning_for_targets", found=False))
+        self.assertEqual(len(cmds_gone), 0)
         self.assertEqual(self.task.current_state, FishingState.SCANNING)
 
     def test_disabled_task_returns_no_commands_when_paused(self) -> None:

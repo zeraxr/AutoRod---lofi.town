@@ -82,10 +82,19 @@ class GeometricVisionStrategy(IVisionStrategy):
         self._dial_mat: np.ndarray | None = None
         self._dial_static_mask: np.ndarray | None = None
 
+        # Cachés de pirámides precalculadas para rendimiento O(1) en el bucle principal
+        self._precomputed_cast: dict[float, np.ndarray] = {}
+        self._precomputed_cast_gray: dict[float, np.ndarray] = {}
+        self._precomputed_reel: dict[float, np.ndarray] = {}
+        self._precomputed_reel_gray: dict[float, np.ndarray] = {}
+        self._precomputed_dial: dict[float, tuple[np.ndarray, np.ndarray | None]] = {}
+        self._scan_counter: int = 0
+
         # Memorias de escala independientes para evitar contaminación entre botones y dial
         self._cached_button_scale: float | None = None
         self._cached_dial_scale: float | None = None
         self._cached_dimensions: tuple[int, int] | None = None
+        self._last_dial_roi: tuple[int, int, int, int] | None = None
 
         self._load_templates()
 
@@ -132,7 +141,8 @@ class GeometricVisionStrategy(IVisionStrategy):
         self._cached_button_scale = None
         self._cached_dial_scale = None
         self._cached_dimensions = None
-        logger.info("Caché de dimensiones purgado. Recalibración activa.")
+        self._last_dial_roi = None
+        logger.info("Caché de dimensiones y ROI purgado. Recalibración activa.")
 
     def _load_templates(self) -> None:
         """Precarga y almacena en memoria los ndarray BGR de las plantillas oficiales."""
@@ -174,31 +184,85 @@ class GeometricVisionStrategy(IVisionStrategy):
         except Exception as exc:
             logger.warning("No se pudo cargar la plantilla 'minigame_dial': %s", exc)
 
+        # Precalcular pirámides multi-escala en memoria para costo O(1) en el bucle principal
+        self._precompute_template_pyramids()
+
+    def _precompute_template_pyramids(self) -> None:
+        """Precalcula y almacena en memoria los templates escalados en BGR y escala de grises."""
+        self._precomputed_cast.clear()
+        self._precomputed_cast_gray.clear()
+        self._precomputed_reel.clear()
+        self._precomputed_reel_gray.clear()
+        self._precomputed_dial.clear()
+
+        for s in self.BUTTON_CANDIDATE_SCALES:
+            if self._cast_mat is not None:
+                oh, ow = self._cast_mat.shape[:2]
+                tw = max(10, int((ow / 2.0) * s))
+                th = max(10, int((oh / 2.0) * s))
+                bgr_scaled = cv2.resize(self._cast_mat, (tw, th), interpolation=cv2.INTER_LINEAR)
+                self._precomputed_cast[s] = bgr_scaled
+                self._precomputed_cast_gray[s] = cv2.cvtColor(bgr_scaled, cv2.COLOR_BGR2GRAY)
+
+            if self._reel_mat is not None:
+                oh, ow = self._reel_mat.shape[:2]
+                tw = max(10, int((ow / 2.0) * s))
+                th = max(10, int((oh / 2.0) * s))
+                bgr_scaled = cv2.resize(self._reel_mat, (tw, th), interpolation=cv2.INTER_LINEAR)
+                self._precomputed_reel[s] = bgr_scaled
+                self._precomputed_reel_gray[s] = cv2.cvtColor(bgr_scaled, cv2.COLOR_BGR2GRAY)
+
+        has_mask = getattr(self, "_dial_static_mask", None) is not None
+        for s in self.DIAL_CANDIDATE_SCALES:
+            if self._dial_mat is not None:
+                oh, ow = self._dial_mat.shape[:2]
+                tw = max(15, int((ow / 2.0) * s))
+                th = max(15, int((oh / 2.0) * s))
+                stpl = cv2.resize(self._dial_mat, (tw, th), interpolation=cv2.INTER_LINEAR)
+                smask = None
+                if has_mask and self._dial_static_mask is not None:
+                    smask = cv2.resize(self._dial_static_mask, (tw, th), interpolation=cv2.INTER_NEAREST)
+                self._precomputed_dial[s] = (stpl, smask)
+
     def analyze(self, frame: ImagePayload, template_ref: str | None = None) -> MatchResult:
         img_bgr = payload_to_ndarray(frame)
         ox = frame.offset_x
         oy = frame.offset_y
 
         # ==========================================================
-        # FASE 1: Detectar Botones Pixel-Art ('CAST!' / 'REEL!')
+        # FASE 0: Rastreo Ultra-Rápido del Dial Conocido (< 0.2 ms / 5000 FPS)
         # ==========================================================
-        btn_match = self._detect_buttons(img_bgr, ox, oy, frame.frame_id)
-        if btn_match is not None:
-            return btn_match
+        if self._last_dial_roi is not None:
+            fast_match = self._track_known_dial(img_bgr, ox, oy, frame.frame_id)
+            if fast_match is not None:
+                return fast_match
+            # Si el dial ya no está en el ROI, se limpió de la pantalla (minijuego finalizado)
+            self._last_dial_roi = None
 
         # ==========================================================
-        # FASE 2: Detectar Minijuego de Aguja (Dial Circular)
-        # ==========================================================
-        minigame_match = self._detect_minigame(img_bgr, ox, oy, frame.frame_id, frame.source_id)
-        if minigame_match is not None:
-            return minigame_match
-
-        # ==========================================================
-        # FASE 3: Detectar Tarjeta de Pez Obtenido (Salto de Animación)
+        # FASE 1: Detectar Tarjeta de Pez Obtenido (Prioridad post-minijuego, ~3 ms)
         # ==========================================================
         card_match = self._detect_blank_card(img_bgr, ox, oy, frame.frame_id)
         if card_match is not None:
             return card_match
+
+        # Redimensionamiento unificado a media resolución para fases 2 y 3 (calculado una sola vez)
+        fh, fw = img_bgr.shape[:2]
+        small_screen = cv2.resize(img_bgr, (fw // 2, fh // 2), interpolation=cv2.INTER_LINEAR)
+
+        # ==========================================================
+        # FASE 2: Detectar Botones Pixel-Art ('CAST!' / 'REEL!')
+        # ==========================================================
+        btn_match = self._detect_buttons(small_screen, ox, oy, frame.frame_id)
+        if btn_match is not None:
+            return btn_match
+
+        # ==========================================================
+        # FASE 3: Detectar Minijuego de Aguja (Búsqueda Inicial del Dial)
+        # ==========================================================
+        minigame_match = self._detect_minigame(small_screen, img_bgr, ox, oy, frame.frame_id, frame.source_id)
+        if minigame_match is not None:
+            return minigame_match
 
         # ==========================================================
         # FASE 4: En Espera / Rastreo Activo
@@ -214,23 +278,23 @@ class GeometricVisionStrategy(IVisionStrategy):
 
     def _detect_buttons(
             self,
-            img_bgr: np.ndarray,
+            small_screen: np.ndarray,
             ox: int,
             oy: int,
             frame_id: int
     ) -> MatchResult | None:
-        """Localiza los botones pixel-art mediante pirámide multi-escala."""
-        if self._cast_mat is None and self._reel_mat is None:
+        """Localiza los botones pixel-art mediante pirámide multi-escala precalculada y verificación BGR."""
+        if not self._precomputed_cast and not self._precomputed_reel:
             return None
 
-        fh, fw = img_bgr.shape[:2]
-        small_screen = cv2.resize(img_bgr, (fw // 2, fh // 2), interpolation=cv2.INTER_LINEAR)
         sh, sw = small_screen.shape[:2]
 
         if self._cache_size_enabled and self._cached_button_scale is not None:
             scales_to_try: list[float] = [self._cached_button_scale]
         else:
             scales_to_try = list(self.BUTTON_CANDIDATE_SCALES)
+
+        small_gray = cv2.cvtColor(small_screen, cv2.COLOR_BGR2GRAY)
 
         best_score = 0.0
         best_loc: tuple[int, int] = (0, 0)
@@ -239,42 +303,48 @@ class GeometricVisionStrategy(IVisionStrategy):
         best_strategy_id: str = "button_detected"
 
         for s in scales_to_try:
-            # Evaluar plantilla CAST!
-            if self._cast_mat is not None:
-                orig_h, orig_w = self._cast_mat.shape[:2]
-                target_w = max(10, int((orig_w / 2.0) * s))
-                target_h = max(10, int((orig_h / 2.0) * s))
-
-                if sw >= target_w and sh >= target_h:
-                    stpl = cv2.resize(self._cast_mat, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
-                    res = cv2.matchTemplate(small_screen, stpl, cv2.TM_CCOEFF_NORMED)
+            # Evaluar plantilla CAST! primero en escala de grises (3x más rápido)
+            if s in self._precomputed_cast_gray:
+                stpl_gray = self._precomputed_cast_gray[s]
+                th, tw = stpl_gray.shape[:2]
+                if sw >= tw and sh >= th:
+                    res = cv2.matchTemplate(small_gray, stpl_gray, cv2.TM_CCOEFF_NORMED)
                     _, mv, _, ml = cv2.minMaxLoc(res)
 
-                    if mv > best_score:
-                        best_score = float(mv)
-                        best_loc = ml
-                        best_size = (target_w * 2, target_h * 2)
-                        best_scale = s
-                        best_strategy_id = "cast_button_detected"
+                    if mv >= self._button_threshold:
+                        # Verificación estricta de color BGR en la región candidata (elimina falsos positivos grises)
+                        candidate_bgr = small_screen[ml[1]:ml[1]+th, ml[0]:ml[0]+tw]
+                        res_bgr = cv2.matchTemplate(candidate_bgr, self._precomputed_cast[s], cv2.TM_CCOEFF_NORMED)
+                        _, mv_bgr, _, _ = cv2.minMaxLoc(res_bgr)
 
-            # Evaluar plantilla REEL!
-            if self._reel_mat is not None:
-                orig_h, orig_w = self._reel_mat.shape[:2]
-                target_w = max(10, int((orig_w / 2.0) * s))
-                target_h = max(10, int((orig_h / 2.0) * s))
+                        if mv_bgr > best_score:
+                            best_score = float(mv_bgr)
+                            best_loc = ml
+                            best_size = (tw * 2, th * 2)
+                            best_scale = s
+                            best_strategy_id = "cast_button_detected"
 
-                if sw >= target_w and sh >= target_h:
-                    stpl = cv2.resize(self._reel_mat, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
-                    res = cv2.matchTemplate(small_screen, stpl, cv2.TM_CCOEFF_NORMED)
+            # Evaluar plantilla REEL! primero en escala de grises
+            if s in self._precomputed_reel_gray:
+                stpl_gray = self._precomputed_reel_gray[s]
+                th, tw = stpl_gray.shape[:2]
+                if sw >= tw and sh >= th:
+                    res = cv2.matchTemplate(small_gray, stpl_gray, cv2.TM_CCOEFF_NORMED)
                     _, mv, _, ml = cv2.minMaxLoc(res)
 
-                    if mv > best_score:
-                        best_score = float(mv)
-                        best_loc = ml
-                        best_size = (target_w * 2, target_h * 2)
-                        best_scale = s
-                        best_strategy_id = "reel_button_detected"
+                    if mv >= self._button_threshold:
+                        candidate_bgr = small_screen[ml[1]:ml[1]+th, ml[0]:ml[0]+tw]
+                        res_bgr = cv2.matchTemplate(candidate_bgr, self._precomputed_reel[s], cv2.TM_CCOEFF_NORMED)
+                        _, mv_bgr, _, _ = cv2.minMaxLoc(res_bgr)
 
+                        if mv_bgr > best_score:
+                            best_score = float(mv_bgr)
+                            best_loc = ml
+                            best_size = (tw * 2, th * 2)
+                            best_scale = s
+                            best_strategy_id = "reel_button_detected"
+
+            # Retorno inmediato si ya se superó el umbral de coincidencia
             if best_score >= self._button_threshold:
                 break
 
@@ -307,8 +377,83 @@ class GeometricVisionStrategy(IVisionStrategy):
 
         return None
 
+    def _track_known_dial(
+            self,
+            img_bgr: np.ndarray,
+            ox: int,
+            oy: int,
+            frame_id: int
+    ) -> MatchResult | None:
+        """
+        Rastreo ultra-rápido (< 0.2 ms / ~5000 FPS) del dial conocido.
+        Inspecciona directamente el ROI sin hacer búsquedas globales por toda la pantalla.
+        """
+        if self._last_dial_roi is None:
+            return None
+
+        full_x, full_y, full_w, full_h = self._last_dial_roi
+        fh, fw = img_bgr.shape[:2]
+
+        # Validar límites de la imagen
+        if full_x < 0 or full_y < 0 or full_x + full_w > fw or full_y + full_h > fh:
+            return None
+
+        dial_roi = img_bgr[full_y:full_y+full_h, full_x:full_x+full_w]
+        if dial_roi.size == 0:
+            return None
+
+        # Verificación de presencia: el dial debe seguir conteniendo los sectores verdes del minijuego
+        hsv_roi = cv2.cvtColor(dial_roi, cv2.COLOR_BGR2HSV)
+        mask_green = cv2.inRange(hsv_roi, np.array([20, 35, 60]), np.array([45, 255, 255]))
+        green_ratio = np.count_nonzero(mask_green) / float(full_w * full_h)
+
+        if green_ratio < 0.03:
+            # El dial ha desaparecido (pez pescado o minijuego terminado)
+            return None
+
+        cx = full_x + full_w // 2
+        cy = full_y + full_h // 2
+
+        region = Region(
+            top_left=Point(x=ox + full_x, y=oy + full_y),
+            size=Size(width=full_w, height=full_h)
+        )
+        center = Point(x=ox + cx, y=oy + cy)
+
+        # Inspección precisa de la columna bajo la aguja a las 12 en punto
+        # Columna ajustada a +-3.5% del centro (ancho ~14px, idéntico a la punta de la aguja)
+        # Altura: de 22% a 40% del alto del dial (justo bajo la punta de la aguja)
+        y1 = max(0, int(full_y + full_h * 0.22))
+        y2 = min(fh, int(full_y + full_h * 0.40))
+        half_w = max(3, int(full_w * 0.035))
+        x1 = max(0, cx - half_w)
+        x2 = min(fw, cx + half_w)
+
+        needle_zone = img_bgr[y1:y2, x1:x2]
+        if needle_zone.size > 0:
+            hsv_zone = cv2.cvtColor(needle_zone, cv2.COLOR_BGR2HSV)
+            mask_light_green = cv2.inRange(hsv_zone, self._target_green_lower, self._target_green_upper)
+            green_pixels = np.count_nonzero(mask_light_green)
+            total_pixels = max(1, needle_zone.shape[0] * needle_zone.shape[1])
+            ratio = green_pixels / float(total_pixels)
+
+            # Impacto cuando el sector verde claro ocupa >= 40% de la columna bajo la aguja
+            is_hit = ratio >= 0.40
+
+            return MatchResult(
+                found=is_hit,
+                confidence=0.99,
+                region=region,
+                center=center,
+                strategy_id="minigame_needle_hit" if is_hit else "minigame_tracking",
+                frame_id=frame_id
+            )
+
+        return None
+
     def _detect_minigame(
             self,
+            small_screen: np.ndarray,
             img_bgr: np.ndarray,
             ox: int,
             oy: int,
@@ -318,7 +463,7 @@ class GeometricVisionStrategy(IVisionStrategy):
         """
         Detecta el dial circular del minijuego e inspecciona si el sector verde claro
         se encuentra bajo la aguja estática superior (12 en punto).
-        Utiliza escalas independientes adaptadas al tamaño real del dial (~0.50).
+        Utiliza escalas independientes precalculadas.
         """
         # 1. Respaldo por segmentación HSV adaptativa (SÓLO para pruebas sintéticas de unidad)
         if source_id.startswith("synthetic"):
@@ -326,11 +471,18 @@ class GeometricVisionStrategy(IVisionStrategy):
 
         if self._dial_mat is not None:
             fh, fw = img_bgr.shape[:2]
-            small_screen = cv2.resize(img_bgr, (fw // 2, fh // 2), interpolation=cv2.INTER_LINEAR)
             sh, sw = small_screen.shape[:2]
 
+            # Pre-filtro ultra-rápido de color verde (< 0.5 ms):
+            # El dial del minijuego contiene obligatoriamente sectores verdes ([20, 35, 60] a [45, 255, 255]).
+            # Si no hay presencia de verde en pantalla, evitamos el costo de 14 matchTemplate con máscara.
+            tiny = cv2.resize(small_screen, (240, 135), interpolation=cv2.INTER_NEAREST)
+            hsv_tiny = cv2.cvtColor(tiny, cv2.COLOR_BGR2HSV)
+            mask_tiny = cv2.inRange(hsv_tiny, np.array([20, 35, 60]), np.array([45, 255, 255]))
+            if cv2.countNonZero(mask_tiny) < 15:
+                return None
+
             scales = [self._cached_dial_scale] if (self._cache_size_enabled and self._cached_dial_scale) else list(self.DIAL_CANDIDATE_SCALES)
-            orig_h, orig_w = self._dial_mat.shape[:2]
 
             best_score = 0.0
             best_loc = (0, 0)
@@ -340,36 +492,35 @@ class GeometricVisionStrategy(IVisionStrategy):
             has_mask = getattr(self, "_dial_static_mask", None) is not None
 
             for s in scales:
-                tw = max(15, int((orig_w / 2.0) * s))
-                th = max(15, int((orig_h / 2.0) * s))
-                if sw >= tw and sh >= th:
-                    stpl = cv2.resize(self._dial_mat, (tw, th), interpolation=cv2.INTER_LINEAR)
-                    if has_mask:
-                        smask = cv2.resize(self._dial_static_mask, (tw, th), interpolation=cv2.INTER_NEAREST)
-                        res = cv2.matchTemplate(small_screen, stpl, cv2.TM_SQDIFF_NORMED, mask=smask)
-                        min_v, _, min_l, _ = cv2.minMaxLoc(res)
-                        score = float(1.0 - min_v)
-                        loc = min_l
-                    else:
-                        res = cv2.matchTemplate(small_screen, stpl, cv2.TM_CCOEFF_NORMED)
-                        _, mv, _, ml = cv2.minMaxLoc(res)
-                        score = float(mv)
-                        loc = ml
+                if s in self._precomputed_dial:
+                    stpl, smask = self._precomputed_dial[s]
+                    th, tw = stpl.shape[:2]
+                    if sw >= tw and sh >= th:
+                        if has_mask and smask is not None:
+                            res = cv2.matchTemplate(small_screen, stpl, cv2.TM_SQDIFF_NORMED, mask=smask)
+                            min_v, _, min_l, _ = cv2.minMaxLoc(res)
+                            score = float(1.0 - min_v)
+                            loc = min_l
+                        else:
+                            res = cv2.matchTemplate(small_screen, stpl, cv2.TM_CCOEFF_NORMED)
+                            _, mv, _, ml = cv2.minMaxLoc(res)
+                            score = float(mv)
+                            loc = ml
 
-                    if score > best_score:
-                        best_score = score
-                        best_loc = loc
-                        best_size = (tw * 2, th * 2)
-                        best_s = s
+                        if score > best_score:
+                            best_score = score
+                            best_loc = loc
+                            best_size = (tw * 2, th * 2)
+                            best_s = s
 
-                    if best_score >= 0.94:
-                        break
+                        if best_score >= 0.94:
+                            break
 
             # Umbral de coincidencia: 0.82 para máscara estática (SQDIFF) o dial_threshold para CCOEFF
             effective_thresh = 0.82 if has_mask else self._dial_threshold
             if best_score >= effective_thresh:
-                full_x = ox + best_loc[0] * 2
-                full_y = oy + best_loc[1] * 2
+                full_x = best_loc[0] * 2
+                full_y = best_loc[1] * 2
                 full_w, full_h = best_size
 
                 # Verificación de integridad: el dial debe contener sectores circulares del minijuego
@@ -381,6 +532,7 @@ class GeometricVisionStrategy(IVisionStrategy):
 
                     # Verificación estricta: debe contener sectores verdes del minijuego
                     if green_ratio >= 0.04:
+                        self._last_dial_roi = (full_x, full_y, full_w, full_h)
                         if self._cache_size_enabled:
                             self._cached_dial_scale = best_s
 
@@ -388,17 +540,19 @@ class GeometricVisionStrategy(IVisionStrategy):
                         cy = full_y + full_h // 2
 
                         region = Region(
-                            top_left=Point(x=full_x, y=full_y),
+                            top_left=Point(x=ox + full_x, y=oy + full_y),
                             size=Size(width=full_w, height=full_h)
                         )
-                        center = Point(x=cx, y=cy)
+                        center = Point(x=ox + cx, y=oy + cy)
 
-                        # Inspección del sector superior directamente bajo la aguja fija (12 en punto)
-                        # Área de paso: y de 25% a 42% del alto del dial, x dentro del 8% del centro.
-                        y1 = max(0, int(full_y + full_h * 0.25))
-                        y2 = min(fh, int(full_y + full_h * 0.42))
-                        x1 = max(0, int(cx - full_w * 0.08))
-                        x2 = min(fw, int(cx + full_w * 0.08))
+                        # Inspección precisa de la columna bajo la aguja a las 12 en punto
+                        # Columna ajustada a +-3.5% del centro (ancho ~14px, idéntico a la punta de la aguja)
+                        # Altura: de 22% a 40% del alto del dial (justo bajo la punta de la aguja)
+                        y1 = max(0, int(full_y + full_h * 0.22))
+                        y2 = min(fh, int(full_y + full_h * 0.40))
+                        half_w = max(3, int(full_w * 0.035))
+                        x1 = max(0, cx - half_w)
+                        x2 = min(fw, cx + half_w)
 
                         needle_zone = img_bgr[y1:y2, x1:x2]
                         if needle_zone.size > 0:
@@ -408,8 +562,8 @@ class GeometricVisionStrategy(IVisionStrategy):
                             total_pixels = max(1, needle_zone.shape[0] * needle_zone.shape[1])
                             ratio = green_pixels / float(total_pixels)
 
-                            # Si más del 18% del área bajo la aguja es verde claro -> IMPACTO
-                            is_hit = ratio >= 0.18
+                            # Si más del 40% del área bajo la aguja es verde claro -> IMPACTO
+                            is_hit = ratio >= 0.40
 
                             return MatchResult(
                                 found=is_hit,

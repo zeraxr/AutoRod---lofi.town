@@ -47,6 +47,7 @@ class FletWindowFX:
             page.window.always_on_top = True
             page.window.bgcolor = "#090a0f"
             page.window.opacity = max(0.40, min(1.0, opacity))
+            page.window.title_bar_hidden = True
 
             # Icono
             icons_dir = Path(__file__).resolve().parents[3] / "assets" / "icons"

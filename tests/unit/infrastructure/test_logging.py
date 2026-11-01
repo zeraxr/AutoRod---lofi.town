@@ -33,7 +33,7 @@ class TestSotaLogging(unittest.TestCase):
         self.assertTrue(log_path.exists())
 
         content = log_path.read_text(encoding="utf-8")
-        self.assertIn("AutoRod SOTA v2.0 - Sesión de Ejecución", content)
+        self.assertIn("AutoRod - Sesión de Ejecución", content)
         self.assertIn("[LOGGING] Sistema de registros SOTA inicializado en:", content)
 
     def test_logging_overwrites_on_subsequent_runs(self) -> None:

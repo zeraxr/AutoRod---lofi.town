@@ -85,20 +85,13 @@ class MssCaptureSource(ICaptureSource):
         except Exception as exc:
             raise CaptureError(f"Fallo en la captura de pantalla física: {exc}") from exc
 
-        # Conversión de BGRA (4 canales) a BGR (3 canales estándar de OpenCV)
-        raw_arr = np.frombuffer(screenshot.raw, dtype=np.uint8).reshape(
-            (screenshot.height, screenshot.width, 4)
-        )
-        bgr_arr = np.ascontiguousarray(raw_arr[:, :, :3])
-        bgr_bytes = bgr_arr.tobytes()
-
         self._frame_counter += 1
         return ImagePayload(
             width=screenshot.width,
             height=screenshot.height,
-            pixel_format=PixelFormat.BGR8,
-            stride=screenshot.width * 3,
-            data=bgr_bytes,
+            pixel_format=PixelFormat.BGRA8,
+            stride=screenshot.width * 4,
+            data=screenshot.raw,
             frame_id=self._frame_counter,
             captured_at_ns=time.monotonic_ns(),
             source_id=f"mss_mon_{self._monitor_index}",

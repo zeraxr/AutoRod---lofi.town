@@ -38,6 +38,8 @@ from autorod.infrastructure.ui.flet.components.viewport_view import FletDiagnost
 from autorod.infrastructure.ui.flet.components.theme_studio_view import FletThemeStudioView
 from autorod.infrastructure.ui.flet.components.settings_view import FletSettingsView
 from autorod.infrastructure.ui.flet.components.telemetry_view import FletTelemetryView
+from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleBar
+from autorod.infrastructure.updater.github_checker import run_async_update_check
 from autorod.infrastructure.ui.flet.utils import (
     safe_update,
     is_control_mounted,
@@ -103,6 +105,7 @@ class FletMainApp:
 
         # Componentes principales (se vinculan al montar la página)
         self.page: ft.Page | None = None
+        self.custom_title_bar: FletCustomTitleBar | None = None
         self.sidebar: FletCollapsibleGooeySidebar | None = None
         self.viewport: FletDiagnosticsViewport | None = None
         self.settings_view: FletSettingsView | None = None
@@ -232,13 +235,27 @@ class FletMainApp:
             expand=True
         )
 
-        main_layout = ft.Row(
+        # Barra de Título Superior Personalizada (Estilo Discord / Frameless)
+        self.custom_title_bar = FletCustomTitleBar(
+            page=page,
+            on_close=self.on_closing,
+            theme_manager=self.theme_mgr
+        )
+
+        main_layout = ft.Column(
             controls=[
-                self.sidebar,
-                ft.Column(
+                self.custom_title_bar,
+                ft.Row(
                     controls=[
-                        topbar,
-                        self._content_area
+                        self.sidebar,
+                        ft.Column(
+                            controls=[
+                                topbar,
+                                self._content_area
+                            ],
+                            spacing=0,
+                            expand=True
+                        )
                     ],
                     spacing=0,
                     expand=True
@@ -249,6 +266,9 @@ class FletMainApp:
         )
 
         page.add(main_layout)
+
+        # Comprobación de actualizaciones en segundo plano
+        run_async_update_check(on_update_found=self.custom_title_bar.set_update_available)
 
         self._start_diagnostics_stream()
         self._start_telemetry_loop()
@@ -294,7 +314,7 @@ class FletMainApp:
     def _start_diagnostics_stream(self) -> None:
         def _worker() -> None:
             while not self._stop_event.is_set():
-                if not self._diagnostics_active:
+                if not self._diagnostics_active or self._current_tab != "dashboard":
                     self._stop_event.wait(0.1)
                     continue
 

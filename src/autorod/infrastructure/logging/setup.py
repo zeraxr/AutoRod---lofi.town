@@ -63,7 +63,7 @@ def configure_sota_logging(
     sep = "=" * 80
     header = (
         f"{sep}\n"
-        f"AutoRod SOTA v2.0 - Sesión de Ejecución\n"
+        f"AutoRod - Sesión de Ejecución\n"
         f"Fecha y Hora de Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Python: {sys.version.split()[0]} | Plataforma: {sys.platform}\n"
         f"UI Engine: Flet Desktop (Flutter Engine para Python)\n"
