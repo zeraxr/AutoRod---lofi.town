@@ -32,8 +32,9 @@ jobs:
       - name: Install Inno Setup
         shell: cmd
         run: |
-          choco install innosetup --no-progress
+          choco install innosetup -y --no-progress
           echo C:\Program Files (x86)\Inno Setup 6>> "%GITHUB_PATH%"
+          echo C:\Program Files\Inno Setup 6>> "%GITHUB_PATH%"
 
       - name: Install Python Dependencies
         shell: cmd
@@ -72,3 +73,5 @@ jobs:
             release_artifacts/*.txt
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
