@@ -43,7 +43,18 @@ jobs:
         env:
           PYTHONPATH: src
         run: |
-          python -m unittest discover -s tests -v
+          python -m unittest discover -s tests -v > test_output.txt 2>&1
+          set TEST_STATUS=%ERRORLEVEL%
+          type test_output.txt
+          type test_output.txt >> "%GITHUB_STEP_SUMMARY%"
+          if %TEST_STATUS% neq 0 exit /b %TEST_STATUS%
+
+      - name: Upload Test Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: test_output.txt
 
       - name: Build Distribution Packages (Exe, Installer, Portable, Hashes)
         shell: cmd
