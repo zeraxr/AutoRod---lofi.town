@@ -17,7 +17,7 @@ AutoRod v2.0 is a complete overhaul of the fishing bot for [lofi.town](https://l
 | **Windows Packaging** | Monolithic exe extracted to `%TEMP%` (frequent antivirus false alarms). | Official Inno Setup installer (`AutoRod-Setup.exe`, no UAC admin prompt required) and Portable `.zip`. |
 | **Antivirus & OS Trust** | UPX-compressed with no metadata, triggering heuristic detections. | Disabled UPX (`--noupx`), native Windows Application Manifest (`asInvoker`, PerMonitorV2), and official PE version info. |
 | **Update Notification** | None. Manual checking required. | Prominent update button in the custom titlebar linked to GitHub Releases. |
-| **Code Architecture & Tests** | Monolithic prototype scripts (`core/bot.py`, `vision/screen.py`). | Clean Architecture with decoupled domain, ports, pipeline supervisor, and 87 automated unit tests. |
+| **Code Architecture & Tests** | Monolithic prototype scripts (`core/bot.py`, `vision/screen.py`). | Clean Architecture with decoupled domain, ports, pipeline supervisor, and 89 automated tests (84 unit + 5 architecture rules). |
 
 ---
 
