@@ -1,0 +1,11 @@
+[autorod]
+target_fps = 60
+input_backend = "sendinput"
+vision_strategy = "geometric_vision_sota"
+capture_source = "mss"
+monitor_index = 1
+button_threshold = 0.63
+cache_button_size = true
+humanized_input = false
+ui_theme = "purple"
+ui_transparency = 0.96

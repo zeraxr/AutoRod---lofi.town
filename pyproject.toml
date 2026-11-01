@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autorod"
+version = "2.0.0"
+description = "SOTA Visual Automation Bot"
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=1.26.0",
+    "opencv-python-headless>=4.9.0.80",
+    "mss>=9.0.1",
+    "flet>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.10.0",
+    "ruff>=0.4.0",
+    "pytest>=8.0.0",
+    "import-linter>=2.0",
+]
+
+[tool.mypy]
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "T20", "I"]
+ignore = []
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"time.sleep".msg = "Prohibido time.sleep. Usa IClock.wait() u otra primitiva cooperativa."
+"builtins.print".msg = "Prohibido print. Usa el módulo logging."
+
+[tool.importlinter]
+root_package = "autorod"
+
+[[tool.importlinter.contracts]]
+name = "Clean Architecture Layers"
+type = "layers"
+layers = [
+    "autorod.infrastructure",
+    "autorod.application",
+    "autorod.domain"
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain purity"
+type = "forbidden"
+source_modules = [
+    "autorod.domain"
+]
+forbidden_modules = [
+    "numpy",
+    "cv2",
+    "mss",
+    "tkinter",
+    "flet",
+    "ctypes"
+]
+
+[[tool.importlinter.contracts]]
+name = "Application purity"
+type = "forbidden"
+source_modules = [
+    "autorod.application"
+]
+forbidden_modules = [
+    "numpy",
+    "cv2",
+    "mss",
+    "tkinter",
+    "flet",
+    "ctypes"
+]

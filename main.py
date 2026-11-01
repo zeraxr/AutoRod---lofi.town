@@ -1,7 +1,13 @@
-import tkinter as tk
-from gui.app import AutoRodGUI
+import sys
+from pathlib import Path
+
+# Añadir src/ al sys.path para compatibilidad inmediata en PyCharm y consola
+src_path = Path(__file__).resolve().parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+from autorod.bootstrap import build_app
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = AutoRodGUI(root)
-    root.mainloop()
+    app = build_app()
+    app.run()

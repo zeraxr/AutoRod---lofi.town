@@ -2,27 +2,40 @@
 venv/
 env/
 .env
+.venv/
 
 # PyCharm y configuraciones de IDE
 .idea/
 .vscode/
 
-# Caché de Python
+# Caché de Python y builds
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+build/
+dist/
+release_artifacts/
+*.spec
 
-# Archivos multimedia temporales (capturas de prueba)
+# Archivos de depuración local y capturas temporales
 *.jpg
 *.png
+debug_button_crop.png
+exact_cast_in_screenshot.png
+user_btn_crop.png
+scratch/
+logs/*.log
+logs/
+
+# Excepciones críticas: Conservar assets, plantillas e iconos oficiales
+!src/autorod/assets/
+!src/autorod/assets/**
+!src/autorod/assets/icons/*.png
+!src/autorod/assets/icons/*.ico
+!src/autorod/assets/templates/*.png
 !materials/
 
 # Archivos del sistema
 .DS_Store
 Thumbs.db
-
-.venv/
-
-build/
-dist/
-*.spec

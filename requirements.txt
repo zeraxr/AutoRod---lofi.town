@@ -1,4 +1,10 @@
-opencv-python
-mss
-pyautogui
-numpy
+# AutoRod v2.0 - Dependencias principales de producción
+numpy>=1.26.0
+opencv-python-headless>=4.9.0.80
+mss>=9.0.1
+flet>=1.0.0
+flet-desktop>=1.0.0
+
+# Herramientas de empaquetado para distribución
+pyinstaller>=6.0.0
+pefile>=2024.8.26
