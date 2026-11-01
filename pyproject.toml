@@ -5,14 +5,38 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "autorod"
 version = "2.0.0"
-description = "SOTA Visual Automation Bot"
+description = "Fast, autonomous computer vision fishing bot for lofi.town built with Python, OpenCV, and Flutter (Flet)."
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.14"
+keywords = [
+    "lofi-town",
+    "lofi-town-bot",
+    "fishing-bot",
+    "auto-fishing",
+    "computer-vision",
+    "opencv",
+    "game-automation",
+    "flet",
+    "flutter-desktop",
+    "mss",
+    "sendinput",
+    "pixel-art",
+    "bot",
+    "windows"
+]
 dependencies = [
     "numpy>=1.26.0",
     "opencv-python-headless>=4.9.0.80",
     "mss>=9.0.1",
     "flet>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/zeraxr/AutoRod"
+Repository = "https://github.com/zeraxr/AutoRod.git"
+Documentation = "https://github.com/zeraxr/AutoRod/blob/main/docs/architecture.md"
+TargetGame = "https://lofi.town"
 
 [project.optional-dependencies]
 dev = [

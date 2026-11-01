@@ -1,8 +1,9 @@
-# 🎣 AutoRod - SOTA Visual Automation Bot for lofi.town
+# 🎣 AutoRod - Computer Vision Fishing Bot for lofi.town
 
 [![Python](https://img.shields.io/badge/Python-3.14-blue.svg)](https://www.python.org/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-5.x-green.svg)](https://opencv.org/)
 [![Flet](https://img.shields.io/badge/UI-Flet%20(Flutter)-02569B.svg)](https://flet.dev/)
+[![Target](https://img.shields.io/badge/Target-lofi.town-ff69b4.svg)](https://lofi.town/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 🌍 **[English](#english) | [Español](#espanol)**
