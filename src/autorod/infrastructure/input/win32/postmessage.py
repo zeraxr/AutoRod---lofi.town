@@ -7,6 +7,7 @@ sin mover el cursor físico del sistema ni interferir con el trabajo del usuario
 
 import ctypes
 from ctypes import wintypes
+import threading
 from collections.abc import Sequence
 import logging
 from typing import Any
@@ -63,7 +64,12 @@ class Win32PostMessageSimulator(IInputSimulator):
     y sincroniza el puntero virtual mediante WM_MOUSEMOVE previo a cada clic.
     """
 
-    def __init__(self, user32: Any | None = None) -> None:
+    def __init__(
+            self,
+            user32: Any | None = None,
+            click_hold_s: float = 0.050,
+            cancel_event: threading.Event | None = None
+    ) -> None:
         if user32 is not None:
             self._user32 = user32
         else:
@@ -73,6 +79,8 @@ class Win32PostMessageSimulator(IInputSimulator):
         self._last_x: int = 0
         self._last_y: int = 0
         self._last_hwnd: int | None = None
+        self._click_hold_s = click_hold_s
+        self._cancel_event = cancel_event or threading.Event()
 
     def _setup_win32_signatures(self) -> None:
         """Configura los tipos de argumentos y retornos de las APIs Win32 para 64-bit."""
@@ -163,7 +171,7 @@ class Win32PostMessageSimulator(IInputSimulator):
         target_x = self._last_x
         target_y = self._last_y
 
-        for cmd in commands:
+        for i, cmd in enumerate(commands):
             if isinstance(cmd, MouseMove):
                 target_x = int(cmd.x)
                 target_y = int(cmd.y)
@@ -173,6 +181,9 @@ class Win32PostMessageSimulator(IInputSimulator):
 
             elif isinstance(cmd, MouseClick):
                 self._send_mouse_click(target_x, target_y, cmd.button, cmd.pressed)
+                if cmd.pressed and self._click_hold_s > 0:
+                    if i + 1 < len(commands) and isinstance(commands[i + 1], MouseClick) and not commands[i + 1].pressed:
+                        self._cancel_event.wait(timeout=self._click_hold_s)
 
             elif isinstance(cmd, (KeyPress, KeyRelease)):
                 # Reservado para comandos de teclado en segundo plano si se requiere

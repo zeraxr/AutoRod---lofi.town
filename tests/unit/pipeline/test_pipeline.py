@@ -113,6 +113,44 @@ class TestPipelineFlow(unittest.TestCase):
 
         self.assertEqual(len(supervisor._threads), 0)
 
+    def test_action_executor_card_dismiss_empty_queue_ticks(self) -> None:
+        """Verifica que ActionExecutor siga disparando clics en CARD_DISMISS con cola vacía."""
+        import threading
+        from autorod.domain.models.fishing_state import FishingState
+        from autorod.application.pipeline.queues import _STOP
+
+        simulator = FakeInputSimulator()
+        action_q: queue.Queue[Any] = queue.Queue()
+        task = FindAndClickTask(
+            click_cooldown_s=0.0,
+            card_cooldown_s=0.0,
+            card_initial_delay_s=0.0,
+            card_dismiss_duration_s=4.0,
+            max_card_dismiss_clicks=5
+        )
+        # Forzar estado CARD_DISMISS y posición conocida con timestamp actual
+        import time
+        now = time.monotonic()
+        task._fsm.transition_to(FishingState.CARD_DISMISS, now)
+        task._card_dismiss_start = now
+        task._last_card_center = Point(x=300, y=400)
+
+        executor = ActionExecutor(action_q, task, simulator, enabled=True)
+        th = threading.Thread(target=executor.run, daemon=True)
+        th.start()
+
+        # Permitir que el bucle de timeout (0.04s) ejecute ticks cooperativamente
+        threading.Event().wait(0.12)
+
+        # Detener executor
+        action_q.put(_STOP)
+        th.join(timeout=1.0)
+
+        # Debe haber inyectado clics generados por los ticks de cola vacía
+        self.assertTrue(len(simulator.history) > 0)
+        self.assertEqual(simulator.history[0].x, 300)
+        self.assertEqual(simulator.history[0].y, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -109,6 +109,19 @@ class TestWin32PostMessageSimulator(unittest.TestCase):
         self.assertIn(down_call, calls)
         self.assertIn(up_call, calls)
 
+    def test_click_hold_duration_waits_between_down_and_up(self) -> None:
+        """Verifica que el simulador espere el tiempo de pulsación (dwell time) entre DOWN y UP."""
+        mock_event = MagicMock()
+        sim = Win32PostMessageSimulator(user32=self.mock_user32, click_hold_s=0.050, cancel_event=mock_event)
+        self.mock_user32.WindowFromPoint.return_value = 11111
+
+        commands = [
+            MouseClick(button=MouseButton.LEFT, pressed=True),
+            MouseClick(button=MouseButton.LEFT, pressed=False)
+        ]
+        sim.execute_batch(commands)
+        mock_event.wait.assert_called_once_with(timeout=0.050)
+
     def test_right_and_middle_click(self) -> None:
         """Verifica el envío de clics derecho y central con movimiento previo."""
         self.mock_user32.WindowFromPoint.return_value = 54321
@@ -167,6 +180,67 @@ class TestSettingsViewTooltipsAndModes(unittest.TestCase):
         # 6. Botón de guardado
         self.assertIsNotNone(view._save_btn.tooltip)
         self.assertIn("guardar", view._save_btn.tooltip.lower())
+
+    def test_settings_view_visual_tracking_cards_and_hints(self) -> None:
+        """Verifica la jerarquía visual de la industria: anclas de icono, hint boxes y tracking tipográfico."""
+        config = AppConfig()
+        view = FletSettingsView(config=config)
+
+        # 5 Anclas de icono para el escaneo vertical en el rail izquierdo
+        self.assertEqual(len(view._icon_anchors), 5)
+        for anchor in view._icon_anchors:
+            self.assertEqual(anchor.width, 26)
+            self.assertEqual(anchor.height, 26)
+            self.assertEqual(anchor.border_radius, 6)
+
+        # 5 Cajas de hint técnico contextual limpio
+        self.assertEqual(len(view._hint_boxes), 5)
+
+    def test_settings_view_live_visual_tracking_updates(self) -> None:
+        """Verifica que el slider y los selectores ofrezcan feedback visual en tiempo real."""
+        config = AppConfig(button_threshold=0.63, input_backend="postmessage")
+        view = FletSettingsView(config=config)
+
+        # 1. Slider en 0.63 (Óptimo)
+        view._update_slider_badge(0.63)
+        self.assertIn("Óptimo", view._slider_status_text.value)
+
+        # Slider en 0.50 (Sensible)
+        view._update_slider_badge(0.50)
+        self.assertIn("Sensible", view._slider_status_text.value)
+
+        # Slider en 0.78 (Estricto)
+        view._update_slider_badge(0.78)
+        self.assertIn("Estricto", view._slider_status_text.value)
+
+        # 2. Notas dinámicas de backend
+        view._update_backend_note("postmessage")
+        self.assertIn("Silencioso", view._backend_active_note.value)
+
+        view._update_backend_note("sendinput")
+        self.assertIn("Físico", view._backend_active_note.value)
+
+        view._update_backend_note("interception")
+        self.assertIn("Kernel", view._backend_active_note.value)
+
+    def test_settings_view_theme_reactivity(self) -> None:
+        """Verifica que la vista actualice los acentos de hints ante cambios en la paleta."""
+        from autorod.infrastructure.ui.flet.theme import ThemeManager
+        theme_mgr = ThemeManager.get_instance("default")
+        view = FletSettingsView(config=AppConfig(), theme_manager=theme_mgr)
+
+        theme_mgr.set_theme("red")
+        self.assertEqual(view._tokens.id, "red")
+        for anchor in view._icon_anchors:
+            self.assertEqual(anchor.content.color, view._tokens.primary)
+
+        # Restaurar tema default
+        theme_mgr.set_theme("default")
+        self.assertEqual(view._tokens.id, "default")
+        for anchor in view._icon_anchors:
+            self.assertEqual(anchor.content.color, view._tokens.primary)
+        for hint_box in view._hint_boxes:
+            self.assertEqual(hint_box.border.left.color, view._tokens.primary)
 
 
 if __name__ == "__main__":

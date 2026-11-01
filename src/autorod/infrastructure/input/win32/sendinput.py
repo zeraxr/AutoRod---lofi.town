@@ -1,4 +1,5 @@
 import ctypes
+import threading
 from collections.abc import Sequence
 from autorod.domain.ports.input_simulator import IInputSimulator
 from autorod.domain.models.input_commands import (
@@ -80,9 +81,15 @@ class SendInputSimulator(IInputSimulator):
     básica y rechaza totalmente librerías detectables como PyAutoGUI.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+            self,
+            click_hold_s: float = 0.050,
+            cancel_event: threading.Event | None = None
+    ) -> None:
         self._user32 = ctypes.windll.user32
         self._extra_info = ctypes.pointer(ctypes.c_ulong(0))
+        self._click_hold_s = click_hold_s
+        self._cancel_event = cancel_event or threading.Event()
 
     def _get_screen_metrics(self) -> tuple[int, int]:
         w = max(1, self._user32.GetSystemMetrics(0))
@@ -96,14 +103,18 @@ class SendInputSimulator(IInputSimulator):
         if not commands:
             return
 
-        inputs: list[Input] = []
-        screen_w, screen_h = self._get_screen_metrics()
-
-        for cmd in commands:
+        for i, cmd in enumerate(commands):
             if isinstance(cmd, MouseClick):
                 flag = self._resolve_mouse_click_flag(cmd.button, cmd.pressed)
                 mi = MouseInput(0, 0, 0, flag, 0, self._extra_info)
-                inputs.append(Input(type=INPUT_MOUSE, ii=Input_I(mi=mi)))
+                inp = Input(type=INPUT_MOUSE, ii=Input_I(mi=mi))
+                self._user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(Input))
+
+                # Si acabamos de presionar y el siguiente comando es soltar el botón:
+                # Mantenemos presionado click_hold_s (50 ms) para que el navegador y juego registren un clic físico real
+                if cmd.pressed and self._click_hold_s > 0:
+                    if i + 1 < len(commands) and isinstance(commands[i + 1], MouseClick) and not commands[i + 1].pressed:
+                        self._cancel_event.wait(timeout=self._click_hold_s)
 
             elif isinstance(cmd, MouseMove):
                 if cmd.absolute:
@@ -112,7 +123,8 @@ class SendInputSimulator(IInputSimulator):
                 else:
                     flags = MOUSEEVENTF_MOVE
                     mi = MouseInput(cmd.x, cmd.y, 0, flags, 0, self._extra_info)
-                    inputs.append(Input(type=INPUT_MOUSE, ii=Input_I(mi=mi)))
+                    inp = Input(type=INPUT_MOUSE, ii=Input_I(mi=mi))
+                    self._user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(Input))
 
             elif isinstance(cmd, (KeyPress, KeyRelease)):
                 scancode = KEY_TO_SCANCODE.get(cmd.code, 0)
@@ -120,12 +132,8 @@ class SendInputSimulator(IInputSimulator):
                 if isinstance(cmd, KeyRelease):
                     flags |= KEYEVENTF_KEYUP
                 ki = KeyBdInput(0, scancode, flags, 0, self._extra_info)
-                inputs.append(Input(type=INPUT_KEYBOARD, ii=Input_I(ki=ki)))
-
-        if inputs:
-            array_type = Input * len(inputs)
-            c_array = array_type(*inputs)
-            self._user32.SendInput(len(inputs), ctypes.byref(c_array), ctypes.sizeof(Input))
+                inp = Input(type=INPUT_KEYBOARD, ii=Input_I(ki=ki))
+                self._user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(Input))
 
     def _resolve_mouse_click_flag(self, button: MouseButton, pressed: bool) -> int:
         if button == MouseButton.LEFT:

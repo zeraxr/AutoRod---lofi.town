@@ -3,6 +3,8 @@ import logging
 from typing import Any
 from autorod.domain.ports.input_simulator import IInputSimulator
 from autorod.domain.ports.actions import IBotTask
+from autorod.domain.models.fishing_state import FishingState
+from autorod.domain.models.match_result import MatchResult
 from autorod.application.pipeline.queues import _STOP
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,21 @@ class ActionExecutor:
     def run(self) -> None:
         try:
             while True:
-                item = self._queue.get()
+                try:
+                    item = self._queue.get(timeout=0.04)
+                except queue.Empty:
+                    # Si no hay nuevos resultados encolados por visión (por ejemplo porque la tarjeta
+                    # está en plena transición o no es blanca pura), pero la tarea está en CARD_DISMISS:
+                    # Despachamos un tick temporal para que continúe la ráfaga de clics sin bloquearse.
+                    if self._enabled and getattr(self._task, "current_state", None) == FishingState.CARD_DISMISS:
+                        commands = self._task.evaluate(
+                            MatchResult(found=False, confidence=0.0, strategy_id="card_dismiss_tick")
+                        )
+                        if commands:
+                            logger.info("[ACCION] Inyectando %d comandos de hardware en pantalla...", len(commands))
+                            self._simulator.execute_batch(commands)
+                    continue
+
                 if item is _STOP:
                     self._queue.task_done()
                     break
