@@ -73,7 +73,7 @@ class FletTelemetryLoggingHandler(logging.Handler):
 class FletMainApp:
     """
     Coordinador maestro de la interfaz Flet para AutoRod.
-    Reemplaza totalmente la arquitectura previa de Tkinter.
+    Arquitectura de ventana única sin dependencias de legacy Tkinter.
     """
 
     def __init__(

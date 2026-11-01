@@ -7,5 +7,5 @@ monitor_index = 1
 button_threshold = 0.63
 cache_button_size = true
 humanized_input = false
-ui_theme = "purple"
+ui_theme = "default"
 ui_transparency = 1.00

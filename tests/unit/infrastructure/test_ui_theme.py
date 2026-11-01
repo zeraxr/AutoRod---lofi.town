@@ -1,7 +1,7 @@
 """Pruebas unitarias para el motor de temas y tokens WCAG 2.2 de AutoRod."""
 
 import unittest
-from autorod.infrastructure.ui.tk.theme import (
+from autorod.infrastructure.ui.flet.theme import (
     ThemeManager,
     THEME_PRESETS,
     calculate_contrast_ratio,

@@ -4,7 +4,7 @@ from autorod.domain.models.diagnostics import DiagnosticFrame
 
 class IDiagnosticsSink(Protocol):
     """
-    Sumidero no bloqueante que conecta el dominio asíncrono con Tkinter.
+    Sumidero no bloqueante que conecta el pipeline asíncrono con la interfaz de usuario.
     """
 
     def publish(self, frame: DiagnosticFrame) -> None:
@@ -21,5 +21,5 @@ class IDiagnosticsRenderer(Protocol):
     """
 
     def render(self, frame: DiagnosticFrame) -> bytes | memoryview:
-        """Genera datos listos para consumir en un PhotoImage de UI."""
+        """Genera buffer binario listo para consumir en la superficie de la UI."""
         ...

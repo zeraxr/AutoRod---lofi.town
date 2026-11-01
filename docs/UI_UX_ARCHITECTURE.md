@@ -1,12 +1,11 @@
 # 🎨 AutoRod UI/UX & Kinetic Design System Architecture (Flet Engine)
 
 > [!IMPORTANT]
-> **AVISO CRÍTICO PARA AGENTES DE IA Y DESARROLLADORES:**
-> **Tkinter ha sido 100% ABANDONADO y DEPRECADO.**
-> La interfaz de usuario de AutoRod ha sido completamente refactorizada a **Flet** (basada en el motor gráfico vectorial Flutter).
-> - **Directorio Activo:** `src/autorod/infrastructure/ui/flet/`
-> - **Directorio Deprecado:** `src/autorod/infrastructure/ui/tk/` (No utilizar ni importar).
-> - **Regla de Pureza:** Queda prohibido importar `flet` o `tkinter` en las capas `domain` o `application`.
+> **AVISO CRÍTICO PARA DESARROLLADORES:**
+> **Tkinter ha sido 100% PURGADO Y ELIMINADO del repositorio.**
+> La interfaz de usuario de AutoRod utiliza exclusivamente **Flet** (motor vectorial Flutter).
+> - **Directorio de UI Oficial:** `src/autorod/infrastructure/ui/flet/`
+> - **Regla de Pureza:** Queda prohibido importar bibliotecas de UI en las capas `domain` o `application`.
 
 ---
 
@@ -118,7 +117,7 @@ Implementa el patrón **Observador (Pub/Sub)** con `ThemeManager`. Cualquier com
 Si eres un agente de IA que trabaja en la lógica de negocio, detección o automatización, ten en cuenta las siguientes directrices fundamentales:
 
 ### 4.1. ¿Cómo referenciar los botones en `FletMainApp`?
-Los botones principales ya no son widgets de Tkinter (`tk.Button`), sino instancias de `FletKineticGlowButton` y `FletKineticEmergencyButton` expuestas como propiedades del objeto `FletMainApp`:
+Los botones principales son instancias de `FletKineticGlowButton` y `FletKineticEmergencyButton` expuestas como propiedades del objeto `FletMainApp`:
 
 | Control | Atributo en `app` | Propósito |
 | :--- | :--- | :--- |
@@ -163,5 +162,5 @@ safe_update(my_control)
 
 ### 4.4. Reglas Inquebrantables del Pipeline
 - **NUNCA utilices `time.sleep()` en el hilo de la UI:** Bloquearía el bucle de eventos de Flet y congelaría el renderizado de Flutter.
-- **NUNCA importes Tkinter:** Todos los imports deben apuntar a `autorod.infrastructure.ui.flet`.
+- **Arquitectura Flet Pura:** Todos los imports de interfaz deben apuntar a `autorod.infrastructure.ui.flet`.
 - **Pureza de Dominio:** Ningún módulo dentro de `src/autorod/domain/` o `src/autorod/application/` puede importar `flet` ni componentes gráficos.
