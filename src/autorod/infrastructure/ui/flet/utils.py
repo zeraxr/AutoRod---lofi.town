@@ -139,9 +139,9 @@ def terminate_child_processes() -> None:
                         child_pids.add(pid)
                         added = True
 
-            # Terminar todos los procesos del árbol descendiente y cualquier flet.exe vinculado
+            # Terminar todos los procesos del árbol descendiente (excluyendo estrictamente el proceso actual)
             for pid, ppid, exe_name in all_procs:
-                if pid in child_pids or (exe_name.startswith("flet") and ppid == current_pid):
+                if (pid in child_pids or (exe_name.startswith("flet") and ppid == current_pid)) and pid != current_pid:
                     h_proc = kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
                     if h_proc:
                         kernel32.TerminateProcess(h_proc, 0)
@@ -151,18 +151,20 @@ def terminate_child_processes() -> None:
     except Exception:
         pass
 
-    # 2. Respaldo definitivo con taskkill en Windows (/T liquida el árbol de procesos)
+    # 2. Respaldo selectivo con taskkill para procesos hijos (nunca sobre el proceso actual)
     if sys.platform == "win32":
-        try:
-            subprocess.run(
-                ["taskkill", "/F", "/T", "/PID", str(current_pid)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=0.6,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
-            )
-        except Exception:
-            pass
+        for cpid in child_pids if 'child_pids' in locals() else []:
+            if cpid != current_pid:
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/PID", str(cpid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=0.4,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                    )
+                except Exception:
+                    pass
 
 
 def close_app_window(page: ft.Page | None) -> None:
@@ -172,7 +174,10 @@ def close_app_window(page: ft.Page | None) -> None:
     planificada en el loop de eventos; de lo contrario produce RuntimeWarning
     y deja la interfaz en carga infinita.
     """
-    if page is None or not hasattr(page, "window"):
+    if page is None:
+        return
+
+    if not hasattr(page, "window"):
         terminate_child_processes()
         return
 
