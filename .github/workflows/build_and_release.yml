@@ -29,13 +29,6 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install Inno Setup
-        shell: cmd
-        run: |
-          choco install innosetup -y --no-progress
-          echo C:\Program Files (x86)\Inno Setup 6>> "%GITHUB_PATH%"
-          echo C:\Program Files\Inno Setup 6>> "%GITHUB_PATH%"
-
       - name: Install Python Dependencies
         shell: cmd
         run: |
@@ -49,10 +42,10 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
 
-      - name: Build Distribution Packages (Exe, Installer, Portable, Hashes)
+      - name: Build Distribution Packages (Portable Zip and Checksums)
         shell: cmd
         run: |
-          python scripts/build_distribution.py
+          python scripts/build_distribution.py --skip-installer
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -68,7 +61,6 @@ jobs:
           name: AutoRod ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: |
-            release_artifacts/*.exe
             release_artifacts/*.zip
             release_artifacts/*.txt
           draft: false

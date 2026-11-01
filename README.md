@@ -25,10 +25,10 @@ Bot de pesca para [lofi.town](https://lofi.town/) usando visión por computadora
 * **Preview window:** Shows what the bot sees and where it is clicking in real time.
 * **Emergency stop:** Press `Q` at any time to close the bot, or `Shift+Q` to pause.
 
-### Download & Install
+### Download
 Grab the latest release from the **[Releases](../../releases)** tab:
-* **Installer (`AutoRod-Setup.exe`):** Recommended. Installs like a regular Windows app with desktop shortcuts and an uninstaller.
-* **Portable (`AutoRod-Portable.zip`):** Unzip and run `AutoRod.exe` directly. No install needed.
+* **Portable (`AutoRod-v2.0.0-Portable.zip`):** Standalone version. Unzip and run `AutoRod.exe` directly. No install needed.
+*(Note: A dedicated setup installer is currently in development and will be included in future releases).*
 
 ### Note about Antivirus
 Because AutoRod captures the screen and sends mouse clicks, some antivirus software might flag it as an auto-clicker or riskware. This is normal for automation tools. If Windows Defender blocks it, you can add an exclusion to the install folder using:
@@ -69,10 +69,10 @@ python -m unittest discover -s tests
 * **Visor en vivo:** Muestra en tiempo real qué está detectando el bot en pantalla.
 * **Freno de emergencia:** Presiona `Q` en cualquier momento para cerrar el bot al instante, o `Shift+Q` para pausar.
 
-### Descarga e Instalación
+### Descarga
 Descarga la versión más reciente en la pestaña de **[Releases](../../releases)**:
-* **Instalador (`AutoRod-Setup.exe`):** Recomendado. Se instala como cualquier programa de Windows, con accesos directos y desinstalador limpio.
-* **Portable (`AutoRod-Portable.zip`):** Descomprime y abre `AutoRod.exe`. No requiere instalación.
+* **Portable (`AutoRod-v2.0.0-Portable.zip`):** Versión independiente. Descomprime y abre `AutoRod.exe` directamente sin instalación.
+*(Nota: El instalador asistido .exe está actualmente en desarrollo y se incorporará en versiones futuras).*
 
 ### Nota sobre Antivirus
 Como AutoRod captura la pantalla y envía clics automáticos, algunos antivirus pueden marcarlo como auto-clicker o herramienta sospechosa. Esto es común en este tipo de programas. Si Windows Defender lo bloquea, puedes agregar la carpeta a exclusiones ejecutando:
