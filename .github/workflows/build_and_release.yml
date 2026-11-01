@@ -74,7 +74,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: autorod-distribution-packages
-          path: release_artifacts/*
+          path: release_artifacts/
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -83,6 +83,9 @@ jobs:
         with:
           name: AutoRod ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
-          files: release_artifacts/*
+          files: |
+            release_artifacts/*.exe
+            release_artifacts/*.zip
+            release_artifacts/*.txt
           draft: false
           prerelease: false
