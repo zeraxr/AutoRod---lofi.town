@@ -46,7 +46,7 @@ class WindowFXManager:
             logger.debug("No se pudo configurar AppUserModelID: %s", exc)
 
     @staticmethod
-    def apply_transparency(window: tk.Tk, opacity: float = 0.96) -> None:
+    def apply_transparency(window: tk.Tk, opacity: float = 1.0) -> None:
         """
         Fija la opacidad de la ventana (0.0 a 1.0) para que calce con los colores
         del software y fondo de pantalla del usuario.

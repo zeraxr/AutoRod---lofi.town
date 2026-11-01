@@ -311,6 +311,23 @@ class FletMainApp:
         if self.viewport:
             self.viewport.card_monitor.update_val(f"Monitor {updated.monitor_index}")
 
+        # Actualización en caliente del simulador de hardware (Legacy vs Nuevo)
+        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "executor"):
+            try:
+                from autorod.infrastructure.input.factory import InputBackendFactory
+                from autorod.infrastructure.input.humanized import HumanizedInputSimulator
+                from autorod.domain.models.clock import SystemClock
+
+                raw_sim = InputBackendFactory.create(updated.input_backend)
+                if updated.humanized_input:
+                    new_sim = HumanizedInputSimulator(raw_sim, SystemClock())
+                else:
+                    new_sim = raw_sim
+                self.runner.supervisor.executor.simulator = new_sim
+                logger.info("[CONFIG] Simulador de hardware actualizado en caliente a: '%s'", updated.input_backend)
+            except Exception as exc:
+                logger.error("[CONFIG] No se pudo actualizar el simulador en caliente: %s", exc)
+
     def _start_diagnostics_stream(self) -> None:
         def _worker() -> None:
             while not self._stop_event.is_set():

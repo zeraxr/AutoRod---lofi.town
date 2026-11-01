@@ -22,7 +22,8 @@ class FletKineticGlowButton(ft.Container):
         height: int = 38,
         is_primary: bool = True,
         confirmed_text: str = "✓ EJECUTADO",
-        theme_manager: ThemeManager | None = None
+        theme_manager: ThemeManager | None = None,
+        tooltip: str | None = None
     ) -> None:
         self._initial_text = text
         self._confirmed_text = confirmed_text
@@ -53,7 +54,8 @@ class FletKineticGlowButton(ft.Container):
             on_click=self._handle_click,
             on_hover=self._handle_hover,
             ink=True,
-            scale=1.0
+            scale=1.0,
+            tooltip=tooltip
         )
 
         self._theme_mgr.subscribe(self._on_theme_updated)
@@ -172,7 +174,8 @@ class FletKineticEmergencyButton(ft.Container):
         on_click: Callable[[], None],
         text: str = "🚨 SALIR [Q]",
         width: int = 132,
-        height: int = 38
+        height: int = 38,
+        tooltip: str | None = "Detención de emergencia del software y liberación de recursos [Tecla Q]"
     ) -> None:
         self._on_click_cmd = on_click
         self._text_ctrl = ft.Text(
@@ -191,6 +194,7 @@ class FletKineticEmergencyButton(ft.Container):
             bgcolor="#1f1114",
             border=ft.Border.all(1.2, "#e11d48"),
             border_radius=10,
+            tooltip=tooltip,
             animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             animate_scale=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             on_click=lambda e: self._on_click_cmd(),

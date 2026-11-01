@@ -29,8 +29,8 @@ class FletWindowFX:
             logger.debug("No se pudo configurar AppUserModelID: %s", exc)
 
     @staticmethod
-    def configure_window(page: ft.Page, title: str = "AutoRod", opacity: float = 0.96) -> None:
-        """Configura las dimensiones, modo oscuro, opacidad e iconos de la ventana Flet."""
+    def configure_window(page: ft.Page, title: str = "AutoRod", opacity: float = 1.0) -> None:
+        """Configura las dimensiones, modo oscuro, opacidad sólida e iconos de la ventana Flet."""
         page.title = title
         page.bgcolor = "#090a0f"
         page.theme_mode = ft.ThemeMode.DARK

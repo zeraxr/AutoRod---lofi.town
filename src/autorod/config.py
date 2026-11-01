@@ -18,7 +18,7 @@ class AppConfig:
     cache_button_size: bool = True
     humanized_input: bool = False
     ui_theme: str = "default"                      # 'default', 'white', 'red', 'github_green', 'purple', 'cyan'
-    ui_transparency: float = 0.96                  # 0.5 a 1.0 (opacidad de la ventana)
+    ui_transparency: float = 1.0                   # 0.5 a 1.0 (1.0 = 100% opaco, sin transparencia)
 
 
 def resolve_config_path(path: str = "config.toml") -> Path:
@@ -53,7 +53,7 @@ def load_config(path: str = "config.toml") -> AppConfig:
         cache_button_size=bool(app_data.get("cache_button_size", True)),
         humanized_input=bool(app_data.get("humanized_input", False)),
         ui_theme=str(app_data.get("ui_theme", "default")),
-        ui_transparency=float(app_data.get("ui_transparency", 0.96)),
+        ui_transparency=float(app_data.get("ui_transparency", 1.0)),
     )
 
 

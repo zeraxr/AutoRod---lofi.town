@@ -117,7 +117,7 @@ class TestFletUIArchitecture(unittest.TestCase):
         # Probar botón para restaurar estilo por defecto
         view._reset_to_default_theme()
         self.assertEqual(self.theme_mgr.current_id, "default")
-        self.assertEqual(view._opacity_slider.value, 0.96)
+        self.assertEqual(view._opacity_slider.value, 1.0)
         self.assertIn("restaurado", view._toast_text.value.lower())
 
     def test_metric_card_updates(self) -> None:

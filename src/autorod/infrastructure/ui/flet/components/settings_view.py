@@ -10,7 +10,10 @@ import mss
 
 
 class FletSettingsView(ft.Container):
-    """Panel de configuración de parámetros de captura y visión."""
+    """
+    Panel de configuración de parámetros de captura, visión e inyección de hardware.
+    Cada opción dispone de leyendas explicativas interactivas (Tooltips) directas y simples.
+    """
 
     def __init__(
         self,
@@ -28,7 +31,7 @@ class FletSettingsView(ft.Container):
             content=ft.Column(
                 controls=[
                     ft.Text("⚙️ Parámetros de Ejecución y Captura Física", size=18, weight=ft.FontWeight.BOLD, color="#ffffff"),
-                    ft.Text("Ajusta los dispositivos de captura de pantalla, algoritmos y sensibilidad en caliente.", size=12, color="#9ca3af")
+                    ft.Text("Pasa el ratón sobre cualquier opción para ver una explicación simple de su funcionamiento.", size=12, color="#9ca3af")
                 ],
                 spacing=3
             ),
@@ -38,69 +41,156 @@ class FletSettingsView(ft.Container):
             padding=ft.Padding.symmetric(horizontal=16, vertical=12)
         )
 
+        # 1. Modo de Clics (Legacy vs Nuevo)
+        backend_tooltip = (
+            "Modo de Clics (Simulador):\n"
+            "• Modo Nuevo (PostMessage): Inyecta clics silenciosos en segundo plano sin mover el ratón físico de Windows. "
+            "Ideal para trabajar, programar o navegar en tu monitor principal mientras pesca en el secundario.\n"
+            "• Modo Legacy (SendInput): Mueve físicamente el cursor de Windows en la pantalla para hacer clic."
+        )
+        self._backend_dropdown = ft.Dropdown(
+            label="Modo de Clics y Simulación",
+            options=[
+                ft.DropdownOption("postmessage", "⭐ Modo Nuevo: Silencioso (Sin mover el ratón)"),
+                ft.DropdownOption("sendinput", "Modo Legacy: Físico (Mueve el cursor de Windows)"),
+                ft.DropdownOption("interception", "Modo Conductor Kernel: Ring 0 (Interception)"),
+                ft.DropdownOption("fake", "Modo Pruebas: Simulado (Sin clics reales)")
+            ],
+            value=self._config.input_backend,
+            width=360,
+            bgcolor="#141622",
+            border_color="#25293d",
+            tooltip=backend_tooltip
+        )
+
+        # 2. Monitor Físico de Captura
+        monitor_tooltip = (
+            "Monitor Físico de Captura:\n"
+            "Selecciona la pantalla donde está abierto el juego. "
+            "El bot capturará y analizará los minijuegos únicamente en este monitor."
+        )
         monitors = self._get_monitors_list()
         self._monitor_dropdown = ft.Dropdown(
             label="Monitor Físico de Captura",
             options=[ft.DropdownOption(m["key"], m["label"]) for m in monitors],
             value=f"Monitor {self._config.monitor_index}",
-            width=320,
+            width=360,
             bgcolor="#141622",
-            border_color="#25293d"
+            border_color="#25293d",
+            tooltip=monitor_tooltip
         )
 
+        # 3. Guardar tamaño detectado (Caché de resolución)
+        cache_tooltip = (
+            "Caché de Tamaño de Botones:\n"
+            "Memoriza las dimensiones de los botones y del minijuego tras encontrarlos por primera vez. "
+            "Reduce drásticamente el uso de CPU y acelera la tasa de cuadros a 60 FPS continuos (Recomendado: Activado)."
+        )
         self._cache_switch = ft.Switch(
             label="Guardar tamaño detectado (Mínimo uso de CPU/RAM - Recomendado)",
             value=self._config.cache_button_size,
-            active_color=self._theme_mgr.current.primary
+            active_color=self._theme_mgr.current.primary,
+            tooltip=cache_tooltip
         )
 
+        # 4. Sensibilidad de Detección de Botones
+        thresh_tooltip = (
+            "Sensibilidad de Detección (Umbral de confianza):\n"
+            "Nivel de precisión visual mínimo requerido para reconocer los botones 'CAST!' y 'REEL!'. "
+            "El valor 0.63 es el equilibrio óptimo para evitar clics accidentales y no perder ninguna picada."
+        )
         self._thresh_slider = ft.Slider(
             min=0.45,
             max=0.85,
             divisions=40,
             value=self._config.button_threshold,
             label="{value}",
-            expand=True
+            expand=True,
+            tooltip=thresh_tooltip
         )
 
-        self._backend_dropdown = ft.Dropdown(
-            label="Simulador de Hardware",
-            options=[
-                ft.DropdownOption("sendinput", "SendInput (Nativo Windows)"),
-                ft.DropdownOption("interception", "Interception (Driver Ring 0)"),
-                ft.DropdownOption("fake", "Modo Simulado (Pruebas)")
-            ],
-            value=self._config.input_backend,
-            width=320,
-            bgcolor="#141622",
-            border_color="#25293d"
+        # 5. Entrada Humanizada (Curvas de Bézier)
+        human_tooltip = (
+            "Movimiento Humanizado:\n"
+            "Genera curvas suaves y variaciones naturales de velocidad al mover el ratón físico en Modo Legacy, "
+            "simulando la mano de una persona real."
+        )
+        self._humanized_switch = ft.Switch(
+            label="Movimiento con trayectoria humana natural (Solo Modo Legacy)",
+            value=self._config.humanized_input,
+            active_color=self._theme_mgr.current.primary,
+            tooltip=human_tooltip
         )
 
+        # 6. Botón de Guardado
+        save_tooltip = (
+            "Guardar Parámetros:\n"
+            "Aplica todos los cambios inmediatamente en el bot en tiempo real "
+            "y los almacena de forma permanente en config.toml."
+        )
         self._save_btn = FletKineticGlowButton(
             text="💾 Guardar Parámetros",
             on_click=self._handle_save,
-            width=190,
+            width=210,
             is_primary=True,
             confirmed_text="✓ GUARDADOS",
-            theme_manager=self._theme_mgr
+            theme_manager=self._theme_mgr,
+            tooltip=save_tooltip
         )
 
         self._toast_text = ft.Text("", size=12, weight=ft.FontWeight.BOLD, color=self._theme_mgr.current.primary)
 
+        # Helpers para encabezados con icono de ayuda informativo
+        def _setting_section(title: str, tip: str, control: ft.Control, subtitle: str | None = None) -> ft.Column:
+            row_items: list[ft.Control] = [
+                ft.Text(title, size=13, weight=ft.FontWeight.BOLD, color="#ffffff", tooltip=tip),
+                ft.Icon(ft.Icons.HELP_OUTLINE_ROUNDED, size=15, color="#6b7280", tooltip=tip)
+            ]
+            items: list[ft.Control] = [
+                ft.Row(controls=row_items, spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+            ]
+            if subtitle:
+                items.append(ft.Text(subtitle, size=11, color="#9ca3af", tooltip=tip))
+            items.append(control)
+            return ft.Column(controls=items, spacing=6)
+
         form_panel = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("Dispositivos de Entrada e Ingesta", size=13, weight=ft.FontWeight.BOLD, color="#ffffff"),
-                    self._monitor_dropdown,
+                    _setting_section(
+                        "Modo de Inyección de Clics",
+                        backend_tooltip,
+                        self._backend_dropdown,
+                        "Alterna entre inyección en segundo plano (Modo Nuevo) o física de cursor (Modo Legacy)."
+                    ),
                     ft.Divider(color="#1c1f2b", height=12),
-                    ft.Text("Optimización y Rendimiento", size=13, weight=ft.FontWeight.BOLD, color="#ffffff"),
-                    self._cache_switch,
+                    _setting_section(
+                        "Dispositivo de Ingesta Visual",
+                        monitor_tooltip,
+                        self._monitor_dropdown,
+                        "Pantalla donde está ubicado el juego a monitorear."
+                    ),
                     ft.Divider(color="#1c1f2b", height=12),
-                    ft.Text("Sensibilidad de Detección de Botones (0.63 recomendado):", size=12, color="#9ca3af"),
-                    self._thresh_slider,
+                    _setting_section(
+                        "Optimización y Rendimiento de CPU",
+                        cache_tooltip,
+                        self._cache_switch,
+                        "Evita re-escanear múltiples escalas por fotograma una vez localizado el dial."
+                    ),
                     ft.Divider(color="#1c1f2b", height=12),
-                    ft.Text("Backend de Simulación:", size=12, color="#9ca3af"),
-                    self._backend_dropdown,
+                    _setting_section(
+                        "Sensibilidad de Detección de Botones (0.63 recomendado)",
+                        thresh_tooltip,
+                        self._thresh_slider,
+                        "Umbral de coincidencia matemática para 'CAST!' y 'REEL!'."
+                    ),
+                    ft.Divider(color="#1c1f2b", height=12),
+                    _setting_section(
+                        "Comportamiento de Cursor Humano",
+                        human_tooltip,
+                        self._humanized_switch,
+                        "Trayectorias no lineales para evasión de detección heurística."
+                    ),
                     ft.Container(height=8),
                     ft.Row(controls=[self._save_btn, self._toast_text], spacing=16)
                 ],
@@ -153,7 +243,7 @@ class FletSettingsView(ft.Container):
                 monitor_index=mon_idx,
                 button_threshold=round(float(self._thresh_slider.value), 2),
                 cache_button_size=bool(self._cache_switch.value),
-                humanized_input=self._config.humanized_input,
+                humanized_input=bool(self._humanized_switch.value),
                 ui_theme=self._config.ui_theme,
                 ui_transparency=self._config.ui_transparency
             )

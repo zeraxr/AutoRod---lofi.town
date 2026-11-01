@@ -193,7 +193,7 @@ class FletThemeStudioView(ft.Container):
                             ft.Container(
                                 content=ft.Column(
                                     controls=[
-                                        ft.Text("Opacidad de Ventana (Fusión con software de fondo):", size=11, color="#9ca3af"),
+                                        ft.Text("Opacidad de Ventana (100% Sólido / Sin Transparencia):", size=11, color="#9ca3af"),
                                         self._opacity_slider
                                     ],
                                     spacing=4
@@ -232,9 +232,9 @@ class FletThemeStudioView(ft.Container):
         )
 
     def _reset_to_default_theme(self) -> None:
-        """Restaura la paleta 'default' (Supabase Emerald) y la opacidad predeterminada."""
+        """Restaura la paleta 'default' (Supabase Emerald) y la opacidad predeterminada (100% opaco)."""
         default_theme = "default"
-        default_opacity = 0.96
+        default_opacity = 1.0
 
         self._opacity_slider.value = default_opacity
         page = get_control_page(self)
@@ -245,7 +245,7 @@ class FletThemeStudioView(ft.Container):
                 pass
 
         self._on_theme_chosen(default_theme)
-        self._toast_text.value = "✓ Tema restaurado a la configuración por defecto (Supabase Emerald • 96% Opacidad)."
+        self._toast_text.value = "✓ Tema restaurado a la configuración por defecto (Supabase Emerald • 100% Opaco)."
         self._toast_text.color = self._theme_mgr.current.primary
         safe_update(self)
 
