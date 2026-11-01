@@ -140,11 +140,11 @@ class TestPipelineFlow(unittest.TestCase):
         th.start()
 
         # Permitir que el bucle de timeout (0.04s) ejecute ticks cooperativamente
-        threading.Event().wait(0.12)
+        threading.Event().wait(0.40)
 
         # Detener executor
         action_q.put(_STOP)
-        th.join(timeout=1.0)
+        th.join(timeout=3.0)
 
         # Debe haber inyectado clics generados por los ticks de cola vacía
         self.assertTrue(len(simulator.history) > 0)

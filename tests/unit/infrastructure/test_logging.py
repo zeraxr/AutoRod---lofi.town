@@ -9,7 +9,10 @@ class TestSotaLogging(unittest.TestCase):
         self.test_log_path = Path("logs/test_autorod.log")
         self._cleanup_handlers()
         if self.test_log_path.exists():
-            self.test_log_path.unlink()
+            try:
+                self.test_log_path.unlink()
+            except Exception:
+                pass
 
     def tearDown(self) -> None:
         self._cleanup_handlers()
