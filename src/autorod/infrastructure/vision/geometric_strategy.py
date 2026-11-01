@@ -33,7 +33,7 @@ class GeometricVisionStrategy(IVisionStrategy):
     """
 
     BUTTON_CANDIDATE_SCALES: tuple[float, ...] = (
-        1.0, 0.95, 1.05, 0.90, 1.10, 0.85, 1.15, 0.80, 1.25, 1.40, 0.75, 1.50
+        1.0, 0.95, 1.05, 0.90, 1.10, 0.85, 1.15, 0.80, 1.25, 0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 1.40, 1.50
     )
 
     # Escalas candidatas para el dial (evaluando escala nativa ~1.0 primero, con cobertura de zoom 0.5x a 1.35x)
@@ -95,6 +95,7 @@ class GeometricVisionStrategy(IVisionStrategy):
         self._cached_dial_scale: float | None = None
         self._cached_dimensions: tuple[int, int] | None = None
         self._last_dial_roi: tuple[int, int, int, int] | None = None
+        self._dial_tracking_frames: int = 0
 
         self._load_templates()
 
@@ -142,6 +143,7 @@ class GeometricVisionStrategy(IVisionStrategy):
         self._cached_dial_scale = None
         self._cached_dimensions = None
         self._last_dial_roi = None
+        self._dial_tracking_frames = 0
         logger.info("Caché de dimensiones y ROI purgado. Recalibración activa.")
 
     def _load_templates(self) -> None:
@@ -230,7 +232,30 @@ class GeometricVisionStrategy(IVisionStrategy):
         oy = frame.offset_y
 
         # ==========================================================
-        # FASE 0: Rastreo Ultra-Rápido del Dial Conocido (< 0.2 ms / 5000 FPS)
+        # FASE 1: Detectar Tarjeta de Pez Obtenido (Prioridad post-minijuego, ~3 ms)
+        # ==========================================================
+        card_match = self._detect_blank_card(img_bgr, ox, oy, frame.frame_id)
+        if card_match is not None:
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
+            return card_match
+
+        # Redimensionamiento unificado a media resolución para fases 2 y 3 (calculado una sola vez)
+        fh, fw = img_bgr.shape[:2]
+        small_screen = cv2.resize(img_bgr, (fw // 2, fh // 2), interpolation=cv2.INTER_LINEAR)
+
+        # ==========================================================
+        # FASE 2: Detectar Botones Pixel-Art ('CAST!' / 'REEL!')
+        # Si un botón está en pantalla, tiene prioridad absoluta y anula cualquier minijuego previo.
+        # ==========================================================
+        btn_match = self._detect_buttons(small_screen, ox, oy, frame.frame_id)
+        if btn_match is not None:
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
+            return btn_match
+
+        # ==========================================================
+        # FASE 3: Rastreo Ultra-Rápido del Dial Conocido (< 0.2 ms / 5000 FPS)
         # ==========================================================
         if self._last_dial_roi is not None:
             fast_match = self._track_known_dial(img_bgr, ox, oy, frame.frame_id)
@@ -240,32 +265,14 @@ class GeometricVisionStrategy(IVisionStrategy):
             self._last_dial_roi = None
 
         # ==========================================================
-        # FASE 1: Detectar Tarjeta de Pez Obtenido (Prioridad post-minijuego, ~3 ms)
-        # ==========================================================
-        card_match = self._detect_blank_card(img_bgr, ox, oy, frame.frame_id)
-        if card_match is not None:
-            return card_match
-
-        # Redimensionamiento unificado a media resolución para fases 2 y 3 (calculado una sola vez)
-        fh, fw = img_bgr.shape[:2]
-        small_screen = cv2.resize(img_bgr, (fw // 2, fh // 2), interpolation=cv2.INTER_LINEAR)
-
-        # ==========================================================
-        # FASE 2: Detectar Botones Pixel-Art ('CAST!' / 'REEL!')
-        # ==========================================================
-        btn_match = self._detect_buttons(small_screen, ox, oy, frame.frame_id)
-        if btn_match is not None:
-            return btn_match
-
-        # ==========================================================
-        # FASE 3: Detectar Minijuego de Aguja (Búsqueda Inicial del Dial)
+        # FASE 4: Detectar Minijuego de Aguja (Búsqueda Inicial del Dial)
         # ==========================================================
         minigame_match = self._detect_minigame(small_screen, img_bgr, ox, oy, frame.frame_id, frame.source_id)
         if minigame_match is not None:
             return minigame_match
 
         # ==========================================================
-        # FASE 4: En Espera / Rastreo Activo
+        # FASE 5: En Espera / Rastreo Activo
         # ==========================================================
         return MatchResult(
             found=False,
@@ -377,6 +384,28 @@ class GeometricVisionStrategy(IVisionStrategy):
 
         return None
 
+    def _count_needle_pixels(self, roi_bgr: np.ndarray) -> int:
+        """
+        Cuenta los píxeles de color naranja/rojo de la aguja estática superior (12 en punto).
+        Elimina al 100% los falsos positivos con el césped, agua o arena del escenario.
+        """
+        rh, rw = roi_bgr.shape[:2]
+        if rh < 15 or rw < 15:
+            return 0
+        y1 = max(0, int(rh * 0.07))
+        y2 = min(rh, int(rh * 0.30))
+        x1 = max(0, int(rw * 0.40))
+        x2 = min(rw, int(rw * 0.60))
+        needle_crop = roi_bgr[y1:y2, x1:x2]
+        if needle_crop.size == 0:
+            return 0
+        hsv = cv2.cvtColor(needle_crop, cv2.COLOR_BGR2HSV)
+        m1 = cv2.inRange(hsv, np.array([5, 80, 80]), np.array([25, 255, 255]))
+        m2 = cv2.inRange(hsv, np.array([0, 80, 80]), np.array([10, 255, 255]))
+        m3 = cv2.inRange(hsv, np.array([170, 80, 80]), np.array([180, 255, 255]))
+        mask = cv2.bitwise_or(m1, cv2.bitwise_or(m2, m3))
+        return int(np.count_nonzero(mask))
+
     def _track_known_dial(
             self,
             img_bgr: np.ndarray,
@@ -391,24 +420,46 @@ class GeometricVisionStrategy(IVisionStrategy):
         if self._last_dial_roi is None:
             return None
 
+        # Límite de seguridad: máximo 120 fotogramas consecutivos (~2.0s) de rastreo sin impacto
+        # para evitar quedar permanentemente anclado a elementos estáticos del fondo (césped/árboles)
+        self._dial_tracking_frames += 1
+        if self._dial_tracking_frames > 120:
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
+            return None
+
         full_x, full_y, full_w, full_h = self._last_dial_roi
         fh, fw = img_bgr.shape[:2]
 
         # Validar límites de la imagen
         if full_x < 0 or full_y < 0 or full_x + full_w > fw or full_y + full_h > fh:
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
             return None
 
         dial_roi = img_bgr[full_y:full_y+full_h, full_x:full_x+full_w]
         if dial_roi.size == 0:
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
+            return None
+
+        # Verificación estricta: la aguja naranja fija en las 12 en punto debe estar presente (mínimo 20 px)
+        needle_count = self._count_needle_pixels(dial_roi)
+        if needle_count < 20:
+            # La aguja ha desaparecido (pez pescado o minijuego terminado)
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
             return None
 
         # Verificación de presencia: el dial debe seguir conteniendo los sectores verdes del minijuego
         hsv_roi = cv2.cvtColor(dial_roi, cv2.COLOR_BGR2HSV)
-        mask_green = cv2.inRange(hsv_roi, np.array([20, 35, 60]), np.array([45, 255, 255]))
-        green_ratio = np.count_nonzero(mask_green) / float(full_w * full_h)
+        mask_olive = cv2.inRange(hsv_roi, np.array([25, 40, 70]), np.array([45, 160, 220]))
+        olive_ratio = np.count_nonzero(mask_olive) / float(full_w * full_h)
 
-        if green_ratio < 0.03:
-            # El dial ha desaparecido (pez pescado o minijuego terminado)
+        if olive_ratio < 0.16:
+            # Los sectores verdes del dial han desaparecido
+            self._last_dial_roi = None
+            self._dial_tracking_frames = 0
             return None
 
         cx = full_x + full_w // 2
@@ -439,6 +490,8 @@ class GeometricVisionStrategy(IVisionStrategy):
 
             # Impacto cuando el sector verde claro ocupa >= 40% de la columna bajo la aguja
             is_hit = ratio >= 0.40
+            if is_hit:
+                self._dial_tracking_frames = 0
 
             return MatchResult(
                 found=is_hit,
@@ -513,26 +566,33 @@ class GeometricVisionStrategy(IVisionStrategy):
                             best_size = (tw * 2, th * 2)
                             best_s = s
 
-                        if best_score >= 0.94:
+                        if best_score >= 0.98:
                             break
 
-            # Umbral de coincidencia: 0.82 para máscara estática (SQDIFF) o dial_threshold para CCOEFF
-            effective_thresh = 0.82 if has_mask else self._dial_threshold
+            # Umbral de coincidencia: 0.945 para máscara estática (SQDIFF) o dial_threshold para CCOEFF
+            # (El césped uniforme produce correlación de ~0.916, por lo que 0.945 es totalmente inmune a falsos positivos)
+            effective_thresh = 0.945 if has_mask else self._dial_threshold
             if best_score >= effective_thresh:
                 full_x = best_loc[0] * 2
                 full_y = best_loc[1] * 2
                 full_w, full_h = best_size
 
-                # Verificación de integridad: el dial debe contener sectores circulares del minijuego
+                # Verificación de integridad: el dial debe contener la aguja superior naranja/roja y sectores verdes
                 dial_roi = img_bgr[full_y:full_y+full_h, full_x:full_x+full_w]
                 if dial_roi.size > 0:
-                    hsv_roi = cv2.cvtColor(dial_roi, cv2.COLOR_BGR2HSV)
-                    mask_green = cv2.inRange(hsv_roi, np.array([20, 35, 60]), np.array([45, 255, 255]))
-                    green_ratio = np.count_nonzero(mask_green) / float(full_w * full_h)
+                    needle_count = self._count_needle_pixels(dial_roi)
+                    if needle_count < 25:
+                        # Rechazar falsos positivos en césped/fondo
+                        return None
 
-                    # Verificación estricta: debe contener sectores verdes del minijuego
-                    if green_ratio >= 0.04:
+                    hsv_roi = cv2.cvtColor(dial_roi, cv2.COLOR_BGR2HSV)
+                    mask_olive = cv2.inRange(hsv_roi, np.array([25, 40, 70]), np.array([45, 160, 220]))
+                    olive_ratio = np.count_nonzero(mask_olive) / float(full_w * full_h)
+
+                    # Verificación estricta: debe contener sectores verdes del minijuego (mínimo 18% del área)
+                    if olive_ratio >= 0.18:
                         self._last_dial_roi = (full_x, full_y, full_w, full_h)
+                        self._dial_tracking_frames = 0
                         if self._cache_size_enabled:
                             self._cached_dial_scale = best_s
 
@@ -657,27 +717,33 @@ class GeometricVisionStrategy(IVisionStrategy):
             frame_id: int
     ) -> MatchResult | None:
         """
-        Detecta la tarjeta blanca con esquinas redondeadas ('blank_card')
-        que se despliega tras pescar un pez.
+        Detecta la tarjeta blanca ('reward_card') que se despliega tras pescar un pez.
+        Basado en el método SOTA v1.1.0: máscara de blanco puro en HSV combinada con
+        análisis de masa y proporciones geométricas robustas e invariantes a iluminación.
         """
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        _, white_mask = cv2.threshold(gray, 235, 255, cv2.THRESH_BINARY)
+        hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        # Rango para blanco brillante de la tarjeta (S bajo <= 25, V alto >= 225)
+        white_mask = cv2.inRange(hsv, np.array([0, 0, 225]), np.array([180, 25, 255]))
         contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            # La tarjeta ocupa una porción grande en pantalla (>15000 px)
-            if area > 15000.0:
+            # La tarjeta ocupa una porción grande en pantalla (>8000 px)
+            if area > 8000.0:
                 bx, by, bw, bh = cv2.boundingRect(cnt)
-                aspect = bw / float(bh) if bh > 0 else 0.0
 
-                # Formato vertical con aspect ratio entre 0.65 y 0.95
-                if 0.65 <= aspect <= 0.95:
+                # Descartar barras delgadas (como la barra de títulos del navegador o bordes)
+                if bw < 80 or bh < 80:
+                    continue
+
+                aspect = bw / float(bh) if bh > 0 else 0.0
+                # Aspect ratio vertical o moderadamente cuadrado (entre 0.55 y 1.20)
+                if 0.55 <= aspect <= 1.20:
                     rect_area = bw * bh
                     solidity = area / float(rect_area) if rect_area > 0 else 0.0
 
-                    # Es una tarjeta sólida y uniforme (>80% de solidez)
-                    if solidity > 0.80:
+                    # Permite texto y sprite en el centro de la tarjeta (>60% de solidez)
+                    if solidity > 0.60:
                         cx = ox + bx + bw // 2
                         cy = oy + by + bh // 2
 

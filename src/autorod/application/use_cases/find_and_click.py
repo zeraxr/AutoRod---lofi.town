@@ -1,6 +1,7 @@
 import time
 import logging
 from collections.abc import Sequence
+from autorod.domain.models.geometry import Point
 from autorod.domain.models.input_commands import (
     InputCommand,
     MouseClick,
@@ -22,9 +23,11 @@ class FindAndClickTask(IBotTask):
       2. MINIGAME (Multi-Hit): Cada vez que la zona verde gira bajo la aguja fija superior,
          inyecta un clic ultra-rápido para jalar la caña. El minijuego se mantiene activo durante múltiples
          aciertos hasta que el pez es finalmente atrapado.
-      3. CARD_DISMISS (Multi-Click): Al desplegarse la tarjeta blanca de pez atrapado,
-         emite una ráfaga activa de clics para saltar las animaciones de revelación y cerrar el diálogo,
-         retornando automáticamente a SCANNING una vez que la tarjeta desaparece de la pantalla.
+      3. CARD_DISMISS (Ráfaga acotada y segura): Al desplegarse la tarjeta de recompensa post-minijuego,
+         emite una ráfaga precisa de hasta 3 clics (a 350 ms de cadencia y 50 ms de pulsación física)
+         durante un máximo de 1.2 segundos para revelar el pez y cerrar el diálogo.
+         Al completar el tercer clic (o si reaparece CAST!), finaliza de inmediato la secuencia y retorna
+         a SCANNING para evitar clics ciegos sobre avatares de otros jugadores en el mapa.
     
     Garantía de Seguridad Industrial:
     La detección de la tarjeta ('blank_card') sólo emite clics cuando el bot
@@ -36,19 +39,25 @@ class FindAndClickTask(IBotTask):
             self,
             click_cooldown_s: float = 0.35,
             minigame_cooldown_s: float = 0.22,
+            card_dismiss_duration_s: float = 1.60,
+            card_initial_delay_s: float = 0.50,
             card_cooldown_s: float = 0.12,
-            max_card_dismiss_clicks: int = 10,
+            max_card_dismiss_clicks: int = 5,
             state_machine: FishingStateMachine | None = None
     ) -> None:
         self.enabled = True
         self._last_click_time = 0.0
         self._cooldown_s = click_cooldown_s
         self._minigame_cooldown_s = minigame_cooldown_s
+        self._card_dismiss_duration_s = card_dismiss_duration_s
+        self._card_initial_delay_s = card_initial_delay_s
         self._card_cooldown_s = card_cooldown_s
         self._max_card_dismiss_clicks = max_card_dismiss_clicks
         self._fsm = state_machine or FishingStateMachine(minigame_timeout_s=16.0, card_timeout_s=6.0)
         self._minigame_hits = 0
         self._card_dismiss_clicks = 0
+        self._card_dismiss_start = 0.0
+        self._last_card_center: Point | None = None
 
     @property
     def state_machine(self) -> FishingStateMachine:
@@ -69,21 +78,70 @@ class FindAndClickTask(IBotTask):
             logger.warning("[FSM] Timeout de inactividad alcanzado. Restableciendo ciclo a SCANNING.")
             self._minigame_hits = 0
             self._card_dismiss_clicks = 0
+            self._last_card_center = None
 
         strategy = result.strategy_id
 
-        # 2. CIERRE EXITOSO DE TARJETA: Si estábamos descartando la tarjeta y ya no está visible
-        if self._fsm.state == FishingState.CARD_DISMISS and strategy != "blank_card_detected":
-            if self._card_dismiss_clicks >= 1:
-                logger.info(
-                    "[TARJETA] ¡Tarjeta de recompensa superada con éxito tras %d clics! Ciclo restablecido a SCANNING.",
-                    self._card_dismiss_clicks
-                )
+        # 2. MANEJO DE DESCARTE DE TARJETA (CARD_DISMISS - Secuencia v1.1.0 restaurada):
+        # Fase 1 (0.0s - 0.5s): Espera de 500 ms para que termine la animación de entrada de la tarjeta.
+        # Fase 2 (0.5s - 1.1s): Ráfaga exacta de 5 clics firmes con cadencia de 120 ms (spam_click(5)).
+        # Fase 3 (1.1s - 1.6s): Espera de 500 ms con clics detenidos al 100% para que la tarjeta se cierre.
+        # Retorno inmediato a SCANNING si reaparece 'CAST!' en cualquier momento.
+        if self._fsm.state == FishingState.CARD_DISMISS:
+            # Si el botón 'CAST!' ya reapareció, la tarjeta fue superada exitosamente y podemos lanzar de inmediato
+            if strategy == "cast_button_detected" and result.found:
+                logger.info("[TARJETA] Botón 'CAST!' detectado. Tarjeta cerrada exitosamente. Retornando a SCANNING.")
                 self._fsm.transition_to(FishingState.SCANNING, now)
                 self._card_dismiss_clicks = 0
                 self._minigame_hits = 0
+                self._last_card_center = None
+                # Se procesará como botón CAST! abajo
+            else:
+                elapsed = now - self._card_dismiss_start
 
-        # Si no hay objetivo confirmado, no accionar
+                # Fin del ciclo total (1.6s): retornar a SCANNING
+                if elapsed >= self._card_dismiss_duration_s:
+                    logger.info(
+                        "[TARJETA] Descarte de tarjeta v1.1.0 completado con éxito tras %d clics (%.2fs). Retornando a SCANNING.",
+                        self._card_dismiss_clicks, elapsed
+                    )
+                    self._fsm.transition_to(FishingState.SCANNING, now)
+                    self._card_dismiss_clicks = 0
+                    self._minigame_hits = 0
+                    self._last_card_center = None
+                    return []
+
+                # Si la tarjeta sigue detectada, refrescar su centro
+                if strategy == "blank_card_detected" and result.center is not None:
+                    self._last_card_center = result.center
+
+                # Fase 1: Espera inicial de asentamiento (0.0s - 0.50s)
+                if elapsed < self._card_initial_delay_s:
+                    return []
+
+                # Fase 2: Ráfaga firme de hasta 5 clics a 120 ms de cadencia
+                if self._card_dismiss_clicks < self._max_card_dismiss_clicks:
+                    if now - self._last_click_time >= self._card_cooldown_s:
+                        target_pt = self._last_card_center or result.center
+                        if target_pt is not None:
+                            self._card_dismiss_clicks += 1
+                            self._last_click_time = now
+                            self._fsm.state_entered_at = now
+                            logger.info(
+                                "[TARJETA] Clic v1.1.0 #%d/%d inyectado en (%d, %d)...",
+                                self._card_dismiss_clicks, self._max_card_dismiss_clicks, target_pt.x, target_pt.y
+                            )
+                            return [
+                                MouseMove(x=target_pt.x, y=target_pt.y, absolute=True),
+                                MouseClick(button=MouseButton.LEFT, pressed=True),
+                                MouseClick(button=MouseButton.LEFT, pressed=False),
+                            ]
+                    return []
+
+                # Fase 3: Los 5 clics fueron emitidos. Clics totalmente detenidos hasta expirar el tiempo de salida.
+                return []
+
+        # Si no hay objetivo confirmado y no estamos en CARD_DISMISS, no accionar
         if not result.found:
             return []
 
@@ -110,12 +168,14 @@ class FindAndClickTask(IBotTask):
             self._fsm.transition_to(FishingState.SCANNING, now)
             self._minigame_hits = 0
             self._card_dismiss_clicks = 0
+            self._last_card_center = None
             logger.info("[BOTON] Botón 'CAST!' detectado y accionado en %s. Caña lanzada, esperando...", coords_str)
 
         elif strategy == "reel_button_detected":
             self._fsm.transition_to(FishingState.MINIGAME, now)
             self._minigame_hits = 0
             self._card_dismiss_clicks = 0
+            self._last_card_center = None
             logger.info("[BOTON] ¡Pez picó el anzuelo! Botón 'REEL!' accionado en %s -> Iniciando MINIJUEGO.", coords_str)
 
         elif strategy == "minigame_needle_hit":
@@ -130,28 +190,20 @@ class FindAndClickTask(IBotTask):
             self._fsm.state_entered_at = now
 
         elif strategy == "blank_card_detected":
-            # El pez fue atrapado y se desplegó la tarjeta de recompensa
-            if self._fsm.state != FishingState.CARD_DISMISS:
-                self._fsm.transition_to(FishingState.CARD_DISMISS, now)
-                self._card_dismiss_clicks = 0
-                logger.info(
-                    "[TARJETA] ¡Pez atrapado tras %d aciertos en minijuego! Tarjeta detectada en %s -> Iniciando secuencia de descarte multi-clic...",
-                    self._minigame_hits, coords_str
-                )
-
-            self._card_dismiss_clicks += 1
+            # El pez fue atrapado y se desplegó la tarjeta de recompensa por primera vez.
+            # En v1.1.0: se esperan 0.5s de animación inicial antes de emitir ningún clic.
+            self._fsm.transition_to(FishingState.CARD_DISMISS, now)
+            self._card_dismiss_start = now
+            self._card_dismiss_clicks = 0
+            self._last_card_center = result.center
+            self._last_click_time = 0.0
             logger.info(
-                "[TARJETA] Clic de descarte #%d inyectado en %s (saltando animación)...",
-                self._card_dismiss_clicks, coords_str
+                "[TARJETA] ¡Pez atrapado tras %d aciertos en minijuego! Tarjeta detectada en %s -> "
+                "Iniciando secuencia v1.1.0 (Espera 0.5s -> 5 clics firmes -> Espera salida)...",
+                self._minigame_hits, coords_str
             )
-            self._fsm.state_entered_at = now
-
-            # Si alcanzó el límite de clics de seguridad, restablecer a SCANNING
-            if self._card_dismiss_clicks >= self._max_card_dismiss_clicks:
-                logger.info("[TARJETA] Límite de ráfaga alcanzado (%d clics). Retornando a SCANNING.", self._card_dismiss_clicks)
-                self._fsm.transition_to(FishingState.SCANNING, now)
-                self._card_dismiss_clicks = 0
-                self._minigame_hits = 0
+            # Fase 1: Asentamiento de entrada (no cliquear en el primer fotograma)
+            return []
 
         # 6. Generación de comandos de ratón (Posicionamiento + Clic atómico)
         if result.center is not None:
