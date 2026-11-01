@@ -12,11 +12,24 @@ from autorod.infrastructure.ui.tk.components.theme_studio_view import ThemeStudi
 from autorod.config import AppConfig
 
 
+try:
+    _root = tk.Tk()
+    _root.withdraw()
+    _root.destroy()
+    TKINTER_AVAILABLE = True
+except Exception:
+    TKINTER_AVAILABLE = False
+
+
+@unittest.skipUnless(TKINTER_AVAILABLE, "Tkinter no disponible en entorno headless/CI")
 class TestIntegratedUIComponents(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.root = tk.Tk()
-        cls.root.withdraw()
+        try:
+            cls.root = tk.Tk()
+            cls.root.withdraw()
+        except Exception:
+            raise unittest.SkipTest("Tkinter no inicializable")
         cls.theme_mgr = ThemeManager.get_instance("default")
 
     @classmethod

@@ -29,7 +29,7 @@ jobs:
       - name: Install Inno Setup
         run: |
           choco install innosetup --no-progress
-          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
+          "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Python Dependencies
         run: |
@@ -37,10 +37,9 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Quality Verification Tests
-        env:
-          PYTHONPATH: src
         run: |
-          python -m unittest discover -s tests
+          $env:PYTHONPATH = "src"
+          python -m unittest discover -s tests -v
 
       - name: Build Distribution Packages (Exe, Installer, Portable, Hashes)
         run: |
@@ -57,6 +56,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          name: AutoRod ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: release_artifacts/*
           draft: false
