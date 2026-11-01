@@ -44,6 +44,14 @@ class ActionExecutor:
         """Activa o desactiva la inyección física de clics/movimientos."""
         self.enabled = enabled
 
+    @property
+    def simulator(self) -> IInputSimulator:
+        return self._simulator
+
+    @simulator.setter
+    def simulator(self, sim: IInputSimulator) -> None:
+        self._simulator = sim
+
     def run(self) -> None:
         try:
             while True:
