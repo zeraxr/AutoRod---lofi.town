@@ -29,7 +29,7 @@ class FletThemeOptionCard(ft.Container):
             border_radius=13,
             bgcolor=tokens.primary,
             border=ft.Border.all(2, "#ffffff" if is_active else tokens.primary),
-            shadow=ft.BoxShadow(spread_radius=1, blur_radius=8, color=tokens.glow_color) if is_active else None
+            shadow=None
         )
 
         self._name_text = ft.Text(tokens.name, size=13, weight=ft.FontWeight.BOLD, color="#ffffff")
@@ -42,7 +42,7 @@ class FletThemeOptionCard(ft.Container):
         )
         self._status_badge = ft.Container(
             content=ft.Text(
-                "✓ ACTIVO" if is_active else "Seleccionar",
+                "ACTIVO" if is_active else "Seleccionar",
                 size=11,
                 weight=ft.FontWeight.BOLD,
                 color=tokens.primary if is_active else "#64748b"
@@ -72,8 +72,8 @@ class FletThemeOptionCard(ft.Container):
                 ],
                 spacing=10
             ),
-            bgcolor="#151824" if is_active else "#11131c",
-            border=ft.Border.all(1.5 if is_active else 1, tokens.primary if is_active else "#1f2334"),
+            bgcolor="#16161a" if is_active else "#121214",
+            border=ft.Border.all(1.5 if is_active else 1, tokens.primary if is_active else "#222225"),
             border_radius=12,
             padding=ft.Padding.all(14),
             on_click=lambda e: self._on_select(self._tokens.id),
@@ -83,11 +83,11 @@ class FletThemeOptionCard(ft.Container):
 
     def set_active(self, active: bool) -> None:
         self._is_active = active
-        self.bgcolor = "#151824" if active else "#11131c"
-        self.border = ft.Border.all(1.5 if active else 1, self._tokens.primary if active else "#1f2334")
+        self.bgcolor = "#16161a" if active else "#121214"
+        self.border = ft.Border.all(1.5 if active else 1, self._tokens.primary if active else "#222225")
         self._swatch.border = ft.Border.all(2, "#ffffff" if active else self._tokens.primary)
-        self._swatch.shadow = ft.BoxShadow(spread_radius=1, blur_radius=8, color=self._tokens.glow_color) if active else None
-        self._status_badge.content.value = "✓ ACTIVO" if active else "Seleccionar"
+        self._swatch.shadow = None
+        self._status_badge.content.value = "ACTIVO" if active else "Seleccionar"
         self._status_badge.content.color = self._tokens.primary if active else "#64748b"
         self._status_badge.bgcolor = self._tokens.accent_subtle if active else ft.Colors.TRANSPARENT
         safe_update(self)
@@ -109,12 +109,13 @@ class FletThemeStudioView(ft.Container):
         self._cards: dict[str, FletThemeOptionCard] = {}
 
         self._reset_btn = FletKineticGlowButton(
-            text="↺ RESTABLECER POR DEFECTO",
+            text="RESTABLECER POR DEFECTO",
+            icon=ft.Icons.RESTART_ALT_ROUNDED,
             on_click=self._reset_to_default_theme,
-            width=210,
+            width=230,
             height=36,
             is_primary=False,
-            confirmed_text="✓ RESTAURADO",
+            confirmed_text="RESTAURADO",
             theme_manager=self._theme_mgr
         )
 
@@ -123,8 +124,8 @@ class FletThemeStudioView(ft.Container):
                 controls=[
                     ft.Column(
                         controls=[
-                            ft.Text("🎨 Estudio de Personalización y Diseño Visual", size=18, weight=ft.FontWeight.BOLD, color="#ffffff"),
-                            ft.Text("Configura la atmósfera cromática y translucidez de AutoRod en tiempo real. 100% integrado dentro del mismo programa.", size=12, color="#9ca3af")
+                            ft.Text("Personalización Visual", size=16, weight=ft.FontWeight.BOLD, color="#ffffff"),
+                            ft.Text("Personalización cromática y opacidad de la interfaz.", size=12, color="#9ca3af")
                         ],
                         spacing=3,
                         expand=True
@@ -134,8 +135,8 @@ class FletThemeStudioView(ft.Container):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            bgcolor="#11131c",
-            border=ft.Border.all(1, "#1e2232"),
+            bgcolor="#121214",
+            border=ft.Border.all(1, "#222225"),
             border_radius=10,
             padding=ft.Padding.symmetric(horizontal=16, vertical=12)
         )
@@ -162,7 +163,7 @@ class FletThemeStudioView(ft.Container):
             on_click=lambda: None,
             width=150,
             is_primary=True,
-            confirmed_text="✓ FUNCIONA",
+            confirmed_text="FUNCIONA",
             theme_manager=self._theme_mgr
         )
         self._sample_metric = FletMetricCard(
@@ -193,7 +194,7 @@ class FletThemeStudioView(ft.Container):
                             ft.Container(
                                 content=ft.Column(
                                     controls=[
-                                        ft.Text("Opacidad de Ventana (100% Sólido / Sin Transparencia):", size=11, color="#9ca3af"),
+                                        ft.Text("Opacidad de Ventana:", size=11, color="#9ca3af"),
                                         self._opacity_slider
                                     ],
                                     spacing=4
@@ -207,8 +208,8 @@ class FletThemeStudioView(ft.Container):
                 ],
                 spacing=10
             ),
-            bgcolor="#11131c",
-            border=ft.Border.all(1, "#1e2232"),
+            bgcolor="#121214",
+            border=ft.Border.all(1, "#222225"),
             border_radius=10,
             padding=ft.Padding.symmetric(horizontal=16, vertical=14)
         )
@@ -245,7 +246,7 @@ class FletThemeStudioView(ft.Container):
                 pass
 
         self._on_theme_chosen(default_theme)
-        self._toast_text.value = "✓ Tema restaurado a la configuración por defecto (Supabase Emerald • 100% Opaco)."
+        self._toast_text.value = "Tema restaurado por defecto."
         self._toast_text.color = self._theme_mgr.current.primary
         safe_update(self)
 
@@ -254,7 +255,7 @@ class FletThemeStudioView(ft.Container):
             for tid, card in self._cards.items():
                 card.set_active(tid == theme_id)
 
-            self._toast_text.value = f"✓ Paleta '{self._theme_mgr.current.name}' aplicada con éxito en todo el sistema."
+            self._toast_text.value = f"Tema '{self._theme_mgr.current.name}' aplicado."
             self._toast_text.color = self._theme_mgr.current.primary
 
             try:

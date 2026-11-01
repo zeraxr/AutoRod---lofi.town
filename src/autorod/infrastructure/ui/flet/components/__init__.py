@@ -12,6 +12,7 @@ from autorod.infrastructure.ui.flet.components.settings_view import FletSettings
 from autorod.infrastructure.ui.flet.components.telemetry_view import FletTelemetryView
 
 from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleBar
+from autorod.infrastructure.ui.flet.components.skeleton_view import FletDashboardSkeleton
 
 __all__ = [
     "FletKineticGlowButton",
@@ -23,4 +24,5 @@ __all__ = [
     "FletSettingsView",
     "FletTelemetryView",
     "FletCustomTitleBar",
+    "FletDashboardSkeleton",
 ]

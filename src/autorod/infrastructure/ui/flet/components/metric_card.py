@@ -14,7 +14,8 @@ class FletMetricCard(ft.Container):
         title: str,
         default_val: str,
         subtext: str,
-        theme_manager: ThemeManager | None = None
+        theme_manager: ThemeManager | None = None,
+        action_control: ft.Control | None = None
     ) -> None:
         self._title = title
         self._val = default_val
@@ -35,12 +36,12 @@ class FletMetricCard(ft.Container):
             value=self._title,
             size=10,
             weight=ft.FontWeight.BOLD,
-            color="#848999"
+            color="#a1a1aa"
         )
 
         self._val_text = ft.Text(
             value=self._val,
-            size=15,
+            size=14,
             weight=ft.FontWeight.BOLD,
             color=self._theme.primary
         )
@@ -48,25 +49,33 @@ class FletMetricCard(ft.Container):
         self._sub_text = ft.Text(
             value=self._sub,
             size=10,
-            color="#6b7280"
+            color="#71717a"
+        )
+
+        header_row = ft.Row(
+            controls=[
+                ft.Row(controls=[self._dot, self._title_text], spacing=6),
+                action_control if action_control else ft.Container()
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
 
         super().__init__(
             content=ft.Column(
                 controls=[
-                    ft.Row(controls=[self._dot, self._title_text], spacing=6),
+                    header_row,
                     self._val_text,
                     self._sub_text
                 ],
                 spacing=3,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor="#11131c",
-            border=ft.Border.all(1, "#1e2232"),
-            border_radius=10,
+            bgcolor="#14151c",
+            border=ft.Border.all(1, "#1e1f29"),
+            border_radius=8,
             padding=ft.Padding.symmetric(horizontal=12, vertical=10),
-            expand=True,
-            animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT)
+            animate=ft.Animation(160, ft.AnimationCurve.EASE_OUT)
         )
 
         self._theme_mgr.subscribe(self._on_theme_updated)

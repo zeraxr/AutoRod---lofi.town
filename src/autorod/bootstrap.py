@@ -91,7 +91,7 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     # 7. Pipeline Productor-Consumidor Concurrente
     producer = CaptureProducer(capture_source, frame_queue, clock, target_fps=config.target_fps)
     consumer = VisionConsumer(vision_strategy, frame_queue, action_queue, diag_sink)
-    executor = ActionExecutor(action_queue, task, input_simulator, enabled=True)
+    executor = ActionExecutor(action_queue, task, input_simulator, enabled=False)
 
     supervisor = PipelineSupervisor(producer, consumer, executor)
     runner = ThreadedPipelineRunner(supervisor)

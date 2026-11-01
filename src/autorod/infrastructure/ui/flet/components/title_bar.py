@@ -1,19 +1,21 @@
 """Barra de título personalizada (Custom Titlebar) sin marco con controles nativos y botón de actualización."""
 
 import webbrowser
+from pathlib import Path
 import flet as ft
 from typing import Callable, Any
 from autorod.infrastructure.ui.flet.theme import ThemeManager
 from autorod.infrastructure.updater.github_checker import UpdateInfo
+from autorod.infrastructure.ui.flet.utils import get_asset_path
 
 
 class FletCustomTitleBar(ft.Container):
     """
     Barra de título personalizada superior (Frameless Window Titlebar).
-    - Muestra el nombre oficial 'AutoRod' (sin 'v2.0').
+    - Muestra el nombre oficial 'AutoRod' con el icono de la aplicación.
     - Área de arrastre fluida (WindowDragArea) con doble clic para maximizar/restaurar.
     - Botón de actualización prominente posicionado a la izquierda de los controles de ventana.
-    - Botones nativos estilizados: Minimizar [-], Maximizar/Restaurar [□] y Cerrar [✕].
+    - Botones nativos estilizados: Minimizar [-], Maximizar/Restaurar [□] y Cerrar [X].
     """
 
     def __init__(
@@ -27,13 +29,23 @@ class FletCustomTitleBar(ft.Container):
         self.theme_mgr = theme_manager or ThemeManager.get_instance()
         self._current_update_info: UpdateInfo | None = None
 
-        # 1. Título y Logo Oficial (Sin 'v2.0' según requerimiento de diseño)
-        self._title_logo = ft.Text("🎣", size=14)
+        # 1. Título y Logo Oficial con icono real del programa (sin emojis)
+        logo_path = get_asset_path("icons/logo_32.png")
+        if not logo_path.is_file():
+            logo_path = get_asset_path("icons/logo.png")
+
+        self._title_logo = ft.Image(
+            src=str(logo_path),
+            width=16,
+            height=16,
+            fit=ft.BoxFit.CONTAIN
+        )
+
         self._title_text = ft.Text(
             "AutoRod",
             size=12,
             weight=ft.FontWeight.BOLD,
-            color="#e2e8f0"
+            color="#e4e4e7"
         )
         title_block = ft.Row(
             controls=[self._title_logo, self._title_text],
@@ -41,9 +53,9 @@ class FletCustomTitleBar(ft.Container):
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
 
-        # 2. Botón de Actualización (Ubicado a la izquierda de los botones de ventana)
+        # 2. Botón de Actualización (Sin emojis, glifo vectorial)
         self._update_btn_text = ft.Text(
-            "🚀 Actualización disponible",
+            "Actualización disponible",
             size=11,
             weight=ft.FontWeight.BOLD,
             color="#ffffff"
@@ -51,7 +63,7 @@ class FletCustomTitleBar(ft.Container):
         self._update_button = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.ROCKET_LAUNCH, size=13, color="#ffffff"),
+                    ft.Icon(ft.Icons.SYSTEM_UPDATE_ALT_ROUNDED, size=13, color="#ffffff"),
                     self._update_btn_text
                 ],
                 spacing=6,
@@ -134,8 +146,8 @@ class FletCustomTitleBar(ft.Container):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            bgcolor="#08090d",
-            border=ft.Border.only(bottom=ft.BorderSide(1, "#181a24")),
+            bgcolor="#070709",
+            border=None,
             height=36,
             padding=ft.Padding.only(left=0, right=0, top=0, bottom=0)
         )
@@ -196,7 +208,7 @@ class FletCustomTitleBar(ft.Container):
     def set_update_available(self, info: UpdateInfo) -> None:
         """Activa y hace visible el botón de actualización en la barra de título."""
         self._current_update_info = info
-        self._update_btn_text.value = f"🚀 Actualizar ({info.latest_version})"
+        self._update_btn_text.value = f"Actualizar ({info.latest_version})"
         self._update_button.visible = True
         try:
             self._update_button.update()

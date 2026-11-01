@@ -57,7 +57,7 @@ def calculate_contrast_ratio(hex1: str, hex2: str) -> float:
     return round((brightest + 0.05) / (darkest + 0.05), 2)
 
 
-DARK_BG = "#090a0f"
+DARK_BG = "#080809"
 
 THEME_PRESETS: dict[str, ThemeTokens] = {
     "default": ThemeTokens(
@@ -66,11 +66,11 @@ THEME_PRESETS: dict[str, ThemeTokens] = {
         primary="#3ecf8e",
         primary_hover="#34b27b",
         primary_active="#299764",
-        text_on_primary="#0c0d10",
+        text_on_primary="#080809",
         glow_color="#3ecf8e",
-        accent_subtle="#142820",
-        border_active="#2a3d31",
-        badge_bg="#143122",
+        accent_subtle="#131715",
+        border_active="#202b24",
+        badge_bg="#141c17",
         badge_fg="#3ecf8e",
         contrast_ratio_on_dark=calculate_contrast_ratio("#3ecf8e", DARK_BG),
         wcag_compliance="AAA"
@@ -81,11 +81,11 @@ THEME_PRESETS: dict[str, ThemeTokens] = {
         primary="#ffffff",
         primary_hover="#f1f5f9",
         primary_active="#e2e8f0",
-        text_on_primary="#090a0f",
+        text_on_primary="#080809",
         glow_color="#ffffff",
-        accent_subtle="#1e222e",
-        border_active="#334155",
-        badge_bg="#272b38",
+        accent_subtle="#18181b",
+        border_active="#2e2e34",
+        badge_bg="#222226",
         badge_fg="#f8fafc",
         contrast_ratio_on_dark=calculate_contrast_ratio("#ffffff", DARK_BG),
         wcag_compliance="AAA"
@@ -98,9 +98,9 @@ THEME_PRESETS: dict[str, ThemeTokens] = {
         primary_active="#b91c1c",
         text_on_primary="#ffffff",
         glow_color="#ef4444",
-        accent_subtle="#2b1518",
-        border_active="#4c1d24",
-        badge_bg="#3b151b",
+        accent_subtle="#1a1213",
+        border_active="#33181a",
+        badge_bg="#221415",
         badge_fg="#f87171",
         contrast_ratio_on_dark=calculate_contrast_ratio("#ef4444", DARK_BG),
         wcag_compliance="AA"
@@ -113,9 +113,9 @@ THEME_PRESETS: dict[str, ThemeTokens] = {
         primary_active="#238636",
         text_on_primary="#ffffff",
         glow_color="#3fb950",
-        accent_subtle="#132319",
-        border_active="#1c3d28",
-        badge_bg="#162e20",
+        accent_subtle="#111813",
+        border_active="#1b2c1f",
+        badge_bg="#131e16",
         badge_fg="#3fb950",
         contrast_ratio_on_dark=calculate_contrast_ratio("#2ea043", DARK_BG),
         wcag_compliance="AA"
@@ -128,9 +128,9 @@ THEME_PRESETS: dict[str, ThemeTokens] = {
         primary_active="#6d28d9",
         text_on_primary="#ffffff",
         glow_color="#a855f7",
-        accent_subtle="#221738",
-        border_active="#3b235f",
-        badge_bg="#2c1a4d",
+        accent_subtle="#17131e",
+        border_active="#291e38",
+        badge_bg="#1c1626",
         badge_fg="#c084fc",
         contrast_ratio_on_dark=calculate_contrast_ratio("#8b5cf6", DARK_BG),
         wcag_compliance="AA"
@@ -141,11 +141,11 @@ THEME_PRESETS: dict[str, ThemeTokens] = {
         primary="#38bdf8",
         primary_hover="#0ea5e9",
         primary_active="#0284c7",
-        text_on_primary="#0c0d10",
+        text_on_primary="#080809",
         glow_color="#38bdf8",
-        accent_subtle="#132533",
-        border_active="#1d3d52",
-        badge_bg="#132d3d",
+        accent_subtle="#11181e",
+        border_active="#182a36",
+        badge_bg="#13212b",
         badge_fg="#38bdf8",
         contrast_ratio_on_dark=calculate_contrast_ratio("#38bdf8", DARK_BG),
         wcag_compliance="AAA"
@@ -163,9 +163,11 @@ class ThemeManager:
         self._listeners: list[Callable[[ThemeTokens], None]] = []
 
     @classmethod
-    def get_instance(cls, initial_theme: str = "default") -> "ThemeManager":
+    def get_instance(cls, initial_theme: str | None = None) -> "ThemeManager":
         if cls._instance is None:
-            cls._instance = cls(initial_theme)
+            cls._instance = cls(initial_theme or "default")
+        elif initial_theme is not None and initial_theme in THEME_PRESETS:
+            cls._instance._current_theme_id = initial_theme
         return cls._instance
 
     @property

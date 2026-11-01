@@ -35,6 +35,7 @@ from autorod.infrastructure.ui.flet.components.kinetic_button import (
 )
 from autorod.infrastructure.ui.flet.components.gooey_sidebar import FletCollapsibleGooeySidebar
 from autorod.infrastructure.ui.flet.components.viewport_view import FletDiagnosticsViewport
+from autorod.infrastructure.ui.flet.components.skeleton_view import FletDashboardSkeleton
 from autorod.infrastructure.ui.flet.components.theme_studio_view import FletThemeStudioView
 from autorod.infrastructure.ui.flet.components.settings_view import FletSettingsView
 from autorod.infrastructure.ui.flet.components.telemetry_view import FletTelemetryView
@@ -42,6 +43,7 @@ from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleB
 from autorod.infrastructure.updater.github_checker import run_async_update_check
 from autorod.infrastructure.ui.flet.utils import (
     safe_update,
+    safe_page_update,
     is_control_mounted,
     get_control_page,
     close_app_window
@@ -62,6 +64,8 @@ class FletTelemetryLoggingHandler(logging.Handler):
             msg = self.format(record)
             if hasattr(self._app, "telemetry_view") and self._app.telemetry_view:
                 self._app.telemetry_view.append_log(msg)
+                if self._app.page and self._app._current_tab == "telemetry":
+                    safe_page_update(self._app.page)
         except Exception:
             pass
 
@@ -97,9 +101,9 @@ class FletMainApp:
         # 2. Identidad de Proceso en Windows Shell
         FletWindowFX.setup_process_identity("autorod.automation.visual.v2", "AutoRod")
 
-        # 3. Estados Operativos
-        self._bot_running = True
-        self._diagnostics_active = True
+        # 3. Estados Operativos (Inicia pausado y en espera)
+        self._bot_running = False
+        self._diagnostics_active = False
         self._current_tab = "dashboard"
         self._stop_event = threading.Event()
 
@@ -135,6 +139,7 @@ class FletMainApp:
             title="AutoRod",
             opacity=self.config_data.ui_transparency
         )
+        FletWindowFX.enable_background_execution()
 
         if hasattr(page, "window"):
             page.window.on_event = self._on_window_event
@@ -142,14 +147,12 @@ class FletMainApp:
         # Atajos locales de teclado en Flet
         page.on_keyboard_event = self._on_flet_key_event
 
-        # 1. Sidebar Colapsable con Navegación Líquida
-        self.sidebar = FletCollapsibleGooeySidebar(
-            on_tab_selected=self._switch_view,
-            theme_manager=self.theme_mgr
+        # 1. Vistas del View Deck
+        self.skeleton_view = FletDashboardSkeleton(theme_manager=self.theme_mgr)
+        self.viewport = FletDiagnosticsViewport(
+            theme_manager=self.theme_mgr,
+            on_clear_cache=self.recalibrate_view
         )
-
-        # 2. Vistas del View Deck
-        self.viewport = FletDiagnosticsViewport(theme_manager=self.theme_mgr)
         self.settings_view = FletSettingsView(
             config=self.config_data,
             config_path=self.config_path,
@@ -163,49 +166,52 @@ class FletMainApp:
         )
         self.telemetry_view = FletTelemetryView(theme_manager=self.theme_mgr)
 
+        # 2. Sidebar Colapsable con Navegación Líquida e Integración de Parámetros
+        self.sidebar = FletCollapsibleGooeySidebar(
+            on_tab_selected=self._switch_view,
+            theme_manager=self.theme_mgr,
+            settings_view=self.settings_view
+        )
+
         self._views: dict[str, ft.Container] = {
             "dashboard": self.viewport,
-            "settings": self.settings_view,
+            "settings": self.viewport,
             "palette": self.theme_studio,
             "telemetry": self.telemetry_view
         }
 
         # 3. Topbar de Controles
         self._breadcrumb_text = ft.Text(
-            "⚡ AutoRod  /  Dashboard",
+            "Dashboard",
             size=13,
-            weight=ft.FontWeight.BOLD,
-            color="#ededed"
+            weight=ft.FontWeight.W_600,
+            color="#e4e4e7"
         )
 
-        self._recal_btn = FletKineticGlowButton(
-            text="🔄 Recalibrar",
-            on_click=self.recalibrate_view,
-            width=100,
-            is_primary=False,
-            confirmed_text="✓ CALIBRADO",
-            theme_manager=self.theme_mgr
-        )
-        self._rayos_x_btn = FletKineticGlowButton(
-            text="👁 Visor: ON",
+        self._preview_btn = FletKineticGlowButton(
+            text="Visualizar",
+            icon=ft.Icons.VISIBILITY_ROUNDED,
             on_click=self.toggle_diagnostics_feed,
-            width=96,
+            width=124,
             is_primary=False,
-            confirmed_text="✓ VISOR",
-            theme_manager=self.theme_mgr
+            confirmed_text="VISOR",
+            theme_manager=self.theme_mgr,
+            tooltip="Previsualizar área de captura en vivo"
         )
         self._action_btn = FletKineticGlowButton(
-            text="⏸ PAUSAR BOT",
+            text="INICIAR BOT",
+            icon=ft.Icons.PLAY_ARROW_ROUNDED,
             on_click=self.toggle_bot_action,
-            width=132,
+            width=140,
             is_primary=True,
-            confirmed_text="✓ EJECUTADO",
-            theme_manager=self.theme_mgr
+            confirmed_text="EJECUTADO",
+            theme_manager=self.theme_mgr,
+            tooltip="Alternar ejecución del bot [Shift + Q]"
         )
         self._emergency_btn = FletKineticEmergencyButton(
             on_click=self.emergency_shutdown,
-            text="🚨 SALIR [Q]",
-            width=128
+            text="SALIR [Q]",
+            width=122
         )
 
         topbar = ft.Container(
@@ -214,8 +220,7 @@ class FletMainApp:
                     self._breadcrumb_text,
                     ft.Row(
                         controls=[
-                            self._recal_btn,
-                            self._rayos_x_btn,
+                            self._preview_btn,
                             self._action_btn,
                             self._emergency_btn
                         ],
@@ -225,14 +230,27 @@ class FletMainApp:
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            bgcolor="#0d0e15",
-            border=ft.Border.only(bottom=ft.BorderSide(1, "#181a24")),
-            padding=ft.Padding.symmetric(horizontal=16, vertical=10)
+            bgcolor="#070709",
+            border=None,
+            padding=ft.Padding.symmetric(horizontal=16, vertical=8)
+        )
+
+        # Conmutador animado para transiciones fluidas entre pestañas (FADE con curvas cúbicas)
+        self._view_switcher = ft.AnimatedSwitcher(
+            content=self.viewport,
+            transition=ft.AnimatedSwitcherTransition.FADE,
+            duration=240,
+            reverse_duration=180,
+            switch_in_curve=ft.AnimationCurve.EASE_OUT_CUBIC,
+            switch_out_curve=ft.AnimationCurve.EASE_IN_CUBIC,
+            expand=True
         )
 
         self._content_area = ft.Container(
-            content=self.viewport,
-            expand=True
+            content=self._view_switcher,
+            expand=True,
+            bgcolor="#0f1015",
+            border_radius=ft.BorderRadius.only(top_left=12)
         )
 
         # Barra de Título Superior Personalizada (Estilo Discord / Frameless)
@@ -274,25 +292,24 @@ class FletMainApp:
         self._start_telemetry_loop()
 
     def _switch_view(self, tab_id: str) -> None:
-        """Cambia suavemente la vista en el área central (100% en la misma ventana)."""
+        """Cambia suavemente la vista con animación fluida entre pestañas."""
         self._current_tab = tab_id
-        if tab_id in self._views and self._content_area:
-            self._content_area.content = self._views[tab_id]
+        target_view = self._views.get(tab_id)
+        if target_view and self._content_area and self._view_switcher:
+            self._view_switcher.content = target_view
             self._update_breadcrumb_text()
             if self.page:
-                self._content_area.update()
+                self._view_switcher.update()
                 self._breadcrumb_text.update()
 
     def _update_breadcrumb_text(self) -> None:
         titles = {
-            "dashboard": "⚡ AutoRod  /  Dashboard",
-            "settings": "⚙️ AutoRod  /  Configuración",
-            "palette": "🎨 AutoRod  /  Personalizar Colores",
-            "telemetry": "📊 AutoRod  /  Telemetría y Logs"
+            "dashboard": "Dashboard",
+            "settings": "Configuración",
+            "palette": "Personalización",
+            "telemetry": "Telemetría"
         }
-        active_title = titles.get(self._current_tab, "AutoRod")
-        theme_name = self.theme_mgr.current.name
-        self._breadcrumb_text.value = f"{active_title}   •   Paleta: {theme_name}"
+        self._breadcrumb_text.value = titles.get(self._current_tab, "Dashboard")
 
     def _on_theme_changed(self, tokens: ThemeTokens) -> None:
         self._update_breadcrumb_text()
@@ -346,6 +363,8 @@ class FletMainApp:
                     try:
                         img_bytes = self.renderer.render(latest)
                         self.viewport.update_image(img_bytes)
+                        if self.page:
+                            safe_page_update(self.page)
                     except Exception:
                         pass
 
@@ -364,13 +383,13 @@ class FletMainApp:
                             if task and hasattr(task, "current_state"):
                                 st = task.current_state.value
                                 if not self._bot_running:
-                                    self.viewport.card_motor.update_val("⏸ PAUSADO [Shift+Q]", color="#f59e0b", sub="Inyección detenida")
+                                    self.viewport.card_motor.update_val("PAUSADO [Shift+Q]", color="#f59e0b", sub="En espera para iniciar")
                                 elif st == "SCANNING":
-                                    self.viewport.card_motor.update_val("🔍 ESCANEANDO", color=self.theme_mgr.current.primary, sub="Buscando CAST! / REEL!")
+                                    self.viewport.card_motor.update_val("ESCANEANDO", color=self.theme_mgr.current.primary, sub="Buscando CAST! / REEL!")
                                 elif st == "MINIGAME":
-                                    self.viewport.card_motor.update_val("🎯 MINIJUEGO", color="#38bdf8", sub="Sincronizando aguja...")
+                                    self.viewport.card_motor.update_val("MINIJUEGO", color="#38bdf8", sub="Sincronizando aguja...")
                                 elif st == "CARD_DISMISS":
-                                    self.viewport.card_motor.update_val("🃏 TARJETA PEZ", color="#a855f7", sub="Saltando animación...")
+                                    self.viewport.card_motor.update_val("TARJETA PEZ", color=self.theme_mgr.current.primary, sub="Saltando animación...")
 
                         if self.vision_strategy and hasattr(self.vision_strategy, "cached_dimensions"):
                             dims = self.vision_strategy.cached_dimensions
@@ -386,10 +405,14 @@ class FletMainApp:
                                 )
                             else:
                                 self.viewport.card_cache.update_val("Buscando...", color="#8b8d98", sub="Esperando objetivo")
+
+                        # Forzar refresco del árbol de Flutter incluso cuando la ventana no tiene el foco
+                        if self.page:
+                            safe_page_update(self.page)
                 except Exception:
                     pass
 
-                self._stop_event.wait(0.5)
+                self._stop_event.wait(0.25)
 
         t = threading.Thread(target=_worker, daemon=True, name="FletTelemetryTick")
         t.start()
@@ -453,6 +476,11 @@ class FletMainApp:
                 else:
                     logger.warning("Cierre de emergencia accionado vía evento Flet 'Q'.")
                     self.emergency_shutdown()
+            elif key in ("1", "2", "3", "4"):
+                tab_map = {"1": "dashboard", "2": "settings", "3": "palette", "4": "telemetry"}
+                target_tab = tab_map.get(key)
+                if target_tab and hasattr(self, "sidebar") and self.sidebar:
+                    self.sidebar.select_tab(target_tab)
         except Exception as exc:
             logger.debug("Error procesando tecla Flet: %s", exc)
 
@@ -465,22 +493,39 @@ class FletMainApp:
 
         if self._action_btn:
             if self._bot_running:
-                self._action_btn.set_text("⏸ PAUSAR BOT")
+                self._action_btn.set_text("PAUSAR BOT", icon=ft.Icons.PAUSE_ROUNDED)
                 if self.viewport:
-                    self.viewport.card_motor.update_val("🎯 BOT ACTIVO", color=self.theme_mgr.current.primary, sub="Inyección activada")
+                    self.viewport.card_motor.update_val("BOT ACTIVO", color=self.theme_mgr.current.primary, sub="Inyección activada")
+                    self.viewport.set_bot_running(True)
             else:
-                self._action_btn.set_text("⏵ INICIAR BOT")
+                self._action_btn.set_text("INICIAR BOT", icon=ft.Icons.PLAY_ARROW_ROUNDED)
                 if self.viewport:
-                    self.viewport.card_motor.update_val("⏸ PAUSADO", color="#f59e0b", sub="Solo diagnósticos visuales")
+                    self.viewport.card_motor.update_val("PAUSADO [Shift+Q]", color="#f59e0b", sub="En espera para iniciar")
+                    self.viewport.set_bot_running(False)
 
         if self.telemetry_view:
-            state_msg = "Acciones del bot REANUDADAS." if self._bot_running else "Acciones del bot PAUSADAS."
+            state_msg = "Acciones del bot INICIADAS [Shift+Q]." if self._bot_running else "Acciones del bot PAUSADAS [Shift+Q]."
             self.telemetry_view.append_log(state_msg)
+
+        if self.page:
+            safe_page_update(self.page)
 
     def toggle_diagnostics_feed(self) -> None:
         self._diagnostics_active = not self._diagnostics_active
-        if self._rayos_x_btn:
-            self._rayos_x_btn.set_text("👁 Visor: ON" if self._diagnostics_active else "👁 Visor: OFF")
+        if self.viewport:
+            self.viewport.set_preview_active(self._diagnostics_active)
+        if self._preview_btn:
+            if self._diagnostics_active:
+                self._preview_btn.set_text("Ocultar Visor", icon=ft.Icons.VISIBILITY_OFF_ROUNDED)
+            else:
+                self._preview_btn.set_text("Visualizar", icon=ft.Icons.VISIBILITY_ROUNDED)
+
+        if self.telemetry_view:
+            msg = "Previsualización visual activada." if self._diagnostics_active else "Previsualización visual detenida (Modo Standby)."
+            self.telemetry_view.append_log(msg)
+
+        if self.page:
+            safe_page_update(self.page)
 
     def recalibrate_view(self) -> None:
         if self.vision_strategy and hasattr(self.vision_strategy, "clear_scale_cache"):
@@ -492,9 +537,13 @@ class FletMainApp:
         if self.telemetry_view:
             self.telemetry_view.append_log("Caché temporal purgado. Recalibrando dimensiones de botones...")
 
+        if self.page:
+            safe_page_update(self.page)
+
     def emergency_shutdown(self) -> None:
         logger.warning("Cerrado de emergencia accionado por el usuario [Q].")
         self._stop_event.set()
+        FletWindowFX.restore_process_timers()
         try:
             if hasattr(self.runner, "supervisor"):
                 self.runner.supervisor.executor.enabled = False
@@ -504,10 +553,13 @@ class FletMainApp:
         finally:
             if self.page:
                 close_app_window(self.page)
+            from autorod.infrastructure.ui.flet.utils import terminate_child_processes
+            terminate_child_processes()
             os._exit(0)
 
     def on_closing(self) -> None:
         self._stop_event.set()
+        FletWindowFX.restore_process_timers()
         try:
             if hasattr(self.runner, "supervisor"):
                 self.runner.supervisor.executor.enabled = False

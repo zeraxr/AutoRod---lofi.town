@@ -21,21 +21,21 @@ class FletTelemetryView(ft.Container):
         header = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("📊 Registro de Eventos y Telemetría", size=18, weight=ft.FontWeight.BOLD, color="#ffffff"),
-                    ft.Text("Monitoreo en vivo de transiciones de estado, clics y pipeline de visión.", size=12, color="#9ca3af")
+                    ft.Text("Telemetría y Registros", size=16, weight=ft.FontWeight.BOLD, color="#ffffff"),
+                    ft.Text("Registro de eventos en vivo y transiciones de estado.", size=12, color="#9ca3af")
                 ],
                 spacing=3
             ),
-            bgcolor="#11131c",
-            border=ft.Border.all(1, "#1e2232"),
+            bgcolor="#121214",
+            border=ft.Border.all(1, "#222225"),
             border_radius=10,
             padding=ft.Padding.symmetric(horizontal=16, vertical=12)
         )
 
         console_box = ft.Container(
             content=self._log_column,
-            bgcolor="#08090d",
-            border=ft.Border.all(1, "#181a24"),
+            bgcolor="#08080a",
+            border=ft.Border.all(1, "#1b1b1e"),
             border_radius=10,
             padding=ft.Padding.all(12),
             expand=True
