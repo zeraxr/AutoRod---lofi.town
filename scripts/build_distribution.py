@@ -21,6 +21,12 @@ import argparse
 import subprocess
 from pathlib import Path
 
+# Garantizar salida UTF-8 sin fallos de codificación en consolas Windows (cp1252)
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 VERSION = "2.0.0"
 APP_NAME = "AutoRod"
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -59,19 +65,19 @@ def find_inno_setup_compiler() -> str | None:
 
 def clean_artifacts() -> None:
     """Limpia carpetas residuales de compilaciones previas."""
-    print("🧹 [1/5] Limpiando directorios de salida antiguos...")
+    print("[1/5] Limpiando directorios de salida antiguos...")
     for dir_path in [BUILD_DIR, DIST_DIR, RELEASE_DIR, ROOT_DIR / "dist_installer"]:
         if dir_path.exists():
             shutil.rmtree(dir_path, ignore_errors=True)
     RELEASE_DIR.mkdir(parents=True, exist_ok=True)
-    print("   ✓ Carpetas limpias y preparadas.")
+    print("   [OK] Carpetas limpias y preparadas.")
 
 
 def run_pyinstaller() -> bool:
     """Ejecuta PyInstaller con el archivo de especificación oficial."""
-    print("🔨 [2/5] Compilando ejecutable con PyInstaller (Modo Seguro: No-UPX + Manifest)...")
+    print("[2/5] Compilando ejecutable con PyInstaller (Modo Seguro: No-UPX + Manifest)...")
     if not SPEC_FILE.is_file():
-        print(f"❌ Error: Archivo spec no encontrado: {SPEC_FILE}")
+        print(f"[ERROR] Archivo spec no encontrado: {SPEC_FILE}")
         return False
 
     cmd = [
@@ -87,28 +93,28 @@ def run_pyinstaller() -> bool:
         res = subprocess.run(cmd, cwd=str(ROOT_DIR), check=True)
         exe_path = DIST_DIR / APP_NAME / f"{APP_NAME}.exe"
         if not exe_path.is_file():
-            print(f"❌ Error: No se encontró el ejecutable generado en {exe_path}")
+            print(f"[ERROR] No se encontro el ejecutable generado en {exe_path}")
             return False
-        print(f"   ✓ Ejecutable compilado exitosamente: {exe_path}")
+        print(f"   [OK] Ejecutable compilado exitosamente: {exe_path}")
         return True
     except subprocess.CalledProcessError as exc:
-        print(f"❌ Error durante la compilación de PyInstaller: {exc}")
+        print(f"[ERROR] Error durante la compilacion de PyInstaller: {exc}")
         return False
 
 
 def build_installer() -> bool:
     """Compila el instalador con Inno Setup si está disponible."""
-    print("📦 [3/5] Compilando instalador asistido de Windows (Inno Setup 6)...")
+    print("[3/5] Compilando instalador asistido de Windows (Inno Setup 6)...")
     iscc_path = find_inno_setup_compiler()
     if not iscc_path:
-        print("   ⚠️  ISCC.exe (Inno Setup 6) no está instalado en este equipo.")
-        print("      Para generar el instalador .exe localmente, instálalo con:")
-        print("      winget install JRSoftware.InnoSetup")
-        print("      (El pipeline de GitHub Actions lo compilará automáticamente en la nube).")
+        print("   [WARN] ISCC.exe (Inno Setup 6) no esta instalado en este equipo.")
+        print("          Para generar el instalador .exe localmente, instalalo con:")
+        print("          winget install JRSoftware.InnoSetup")
+        print("          (El pipeline de GitHub Actions lo compilara automaticamente en la nube).")
         return False
 
     if not ISS_FILE.is_file():
-        print(f"❌ Error: Archivo ISS no encontrado en {ISS_FILE}")
+        print(f"[ERROR] Archivo ISS no encontrado en {ISS_FILE}")
         return False
 
     try:
@@ -118,22 +124,22 @@ def build_installer() -> bool:
         if installer_exe.is_file():
             target_path = RELEASE_DIR / installer_exe.name
             shutil.copy2(installer_exe, target_path)
-            print(f"   ✓ Instalador generado exitosamente: {target_path}")
+            print(f"   [OK] Instalador generado exitosamente: {target_path}")
             return True
         else:
-            print("❌ No se encontró el archivo de salida del instalador.")
+            print("[ERROR] No se encontro el archivo de salida del instalador.")
             return False
     except subprocess.CalledProcessError as exc:
-        print(f"❌ Error al compilar con Inno Setup: {exc}")
+        print(f"[ERROR] Error al compilar con Inno Setup: {exc}")
         return False
 
 
 def build_portable_zip() -> bool:
     """Genera el paquete portable comprimido (.zip)."""
-    print("🗜️  [4/5] Creando paquete portable .zip...")
+    print("[4/5] Creando paquete portable .zip...")
     source_dir = DIST_DIR / APP_NAME
     if not source_dir.is_dir():
-        print(f"❌ Directorio fuente no encontrado: {source_dir}")
+        print(f"[ERROR] Directorio fuente no encontrado: {source_dir}")
         return False
 
     zip_filename = f"{APP_NAME}-v{VERSION}-Portable"
@@ -142,16 +148,16 @@ def build_portable_zip() -> bool:
     try:
         shutil.make_archive(str(archive_base), "zip", root_dir=str(DIST_DIR), base_dir=APP_NAME)
         final_zip = archive_base.with_suffix(".zip")
-        print(f"   ✓ Paquete portable creado exitosamente: {final_zip}")
+        print(f"   [OK] Paquete portable creado exitosamente: {final_zip}")
         return True
     except Exception as exc:
-        print(f"❌ Error al empaquetar archivo ZIP: {exc}")
+        print(f"[ERROR] Error al empaquetar archivo ZIP: {exc}")
         return False
 
 
 def generate_checksums() -> None:
     """Calcula y guarda los hashes criptográficos SHA-256 de los artefactos producidos."""
-    print("🔒 [5/5] Generando hashes criptográficos de integridad (SHA-256)...")
+    print("[5/5] Generando hashes criptograficos de integridad (SHA-256)...")
     checksums_file = RELEASE_DIR / "SHA256SUMS.txt"
     entries = []
 
@@ -165,13 +171,13 @@ def generate_checksums() -> None:
         for name, sha, size_mb in entries:
             f.write(f"{sha}  {name}\n")
 
-    print(f"   ✓ Archivo de verificación generado: {checksums_file}\n")
+    print(f"   [OK] Archivo de verificacion generado: {checksums_file}\n")
     print("=" * 70)
-    print("✨ RESUMEN DE ARTEFACTOS DE DISTRIBUCIÓN GENERADOS:")
+    print("RESUMEN DE ARTEFACTOS DE DISTRIBUCION GENERADOS:")
     print("=" * 70)
     for name, sha, size_mb in entries:
-        print(f"📦 Archivo : {name} ({size_mb:.2f} MB)")
-        print(f"🔑 SHA-256 : {sha}\n")
+        print(f"[*] Archivo : {name} ({size_mb:.2f} MB)")
+        print(f"    SHA-256 : {sha}\n")
     print("=" * 70)
 
 
@@ -186,7 +192,7 @@ def main() -> int:
         return 0
 
     print("=" * 70)
-    print(f"🚀 INICIANDO PIPELINE DE DISTRIBUCIÓN: {APP_NAME} v{VERSION}")
+    print(f"INICIANDO PIPELINE DE DISTRIBUCION: {APP_NAME} v{VERSION}")
     print("=" * 70)
 
     if not run_pyinstaller():
@@ -199,7 +205,7 @@ def main() -> int:
         return 1
 
     generate_checksums()
-    print("🎉 Pipeline completado con éxito. Artefactos listos en 'release_artifacts/'.\n")
+    print("Pipeline completado con exito. Artefactos listos en 'release_artifacts/'.\n")
     return 0
 
 
