@@ -35,6 +35,7 @@ logs/
 !src/autorod/assets/icons/*.ico
 !src/autorod/assets/templates/*.png
 !materials/
+!distribution/**/*.spec
 
 # Archivos del sistema
 .DS_Store
