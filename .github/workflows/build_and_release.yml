@@ -58,7 +58,17 @@ jobs:
       - name: Build Distribution Packages (Exe, Installer, Portable, Hashes)
         shell: cmd
         run: |
-          python scripts/build_distribution.py
+          python scripts/build_distribution.py > build_log.txt 2>&1
+          type build_log.txt
+          type build_log.txt >> "%GITHUB_STEP_SUMMARY%"
+          if errorlevel 1 exit /b 1
+
+      - name: Upload Build Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build_log.txt
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
