@@ -1,49 +1,43 @@
-# 🎣 AutoRod - Computer Vision Fishing Bot for lofi.town
+# 🎣 AutoRod
+
+Bot de pesca para [lofi.town](https://lofi.town/) usando visión por computadora.
 
 [![Python](https://img.shields.io/badge/Python-3.14-blue.svg)](https://www.python.org/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-5.x-green.svg)](https://opencv.org/)
-[![Flet](https://img.shields.io/badge/UI-Flet%20(Flutter)-02569B.svg)](https://flet.dev/)
-[![Target](https://img.shields.io/badge/Target-lofi.town-ff69b4.svg)](https://lofi.town/)
+[![Flet](https://img.shields.io/badge/UI-Flet-02569B.svg)](https://flet.dev/)
+[![Game](https://img.shields.io/badge/Game-lofi.town-ff69b4.svg)](https://lofi.town/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-🌍 **[English](#english) | [Español](#espanol)**
+🇺🇸 **[English](#english)** | 🇨🇱 **[Español](#español)**
 
 ---
 
 <a id="english"></a>
-## 🇬🇧 English
+## 🇺🇸 English
 
-**AutoRod** is a next-generation automated fishing bot for **[lofi.town](https://lofi.town/)**. Built with Clean Architecture, Python, OpenCV, and a responsive Flutter-powered GUI (Flet), it uses computer vision to autonomously detect minigames, buttons, and rewards without memory injection or client modifications.
+**AutoRod** is a fishing bot for **[lofi.town](https://lofi.town/)**. It uses computer vision to detect the fishing minigame, hit the target on time, cast the rod, and skip catch rewards. It works purely by looking at the screen and simulating mouse clicks, without modifying the browser or injecting into game memory.
 
-### Key Features
-* **Adaptive Vision Engine:** Fast HSV contour and multi-scale template matching with auto-calibration.
-* **Low-Latency Input Pipeline:** Asynchronous threaded Producer-Consumer queue with ring-0 / Win32 `SendInput` backend and humanized mouse trajectory simulation.
-* **Modern Responsive Interface:** Fluid Flutter UI featuring 6 WCAG 2.2 color palettes, customizable window opacity, and real-time live telemetry diagnostics.
-* **Emergency Safety Hotkeys:** Instant OS-level emergency stop with `[Q]` and cooperative pause with `[Shift+Q]`.
-* **Zero-Friction Windows Distribution:** Packaged with official Windows PE version metadata, application manifest (`asInvoker`, PerMonitorV2 DPI awareness), disabled UPX to minimize false positives, and Inno Setup installer.
+### What it does
+* **Auto-fishing:** Detects "Cast" and "Reel" buttons automatically.
+* **Minigame timing:** Watches the dial and clicks when the needle is on the green target.
+* **Reward skipping:** Clicks past fish reward cards quickly to keep fishing.
+* **Background mode:** Can send clicks directly to the game window without moving your mouse cursor, so you can keep using your PC.
+* **Preview window:** Shows what the bot sees and where it is clicking in real time.
+* **Emergency stop:** Press `Q` at any time to close the bot, or `Shift+Q` to pause.
 
-### Distribution & Installation
-Download the latest version from the **[Releases](../../releases)** page:
-1. **Official Setup Installer (`AutoRod-v2.0.0-Setup.exe`):** Recommended. Installs to user space (`%LOCALAPPDATA%\Programs\AutoRod`) without requiring administrator elevation, adds Start Menu and Desktop shortcuts, and supports clean uninstallation.
-2. **Portable Package (`AutoRod-v2.0.0-Portable.zip`):** Standalone archive. Extract anywhere and launch `AutoRod.exe` directly.
-3. **Integrity Verification:** Check integrity against `SHA256SUMS.txt` using PowerShell:
-   ```powershell
-   Get-FileHash .\AutoRod-v2.0.0-Setup.exe -Algorithm SHA256
-   ```
+### Download & Install
+Grab the latest release from the **[Releases](../../releases)** tab:
+* **Installer (`AutoRod-Setup.exe`):** Recommended. Installs like a regular Windows app with desktop shortcuts and an uninstaller.
+* **Portable (`AutoRod-Portable.zip`):** Unzip and run `AutoRod.exe` directly. No install needed.
 
-### 🛡️ Security & Antivirus Trust Policy
-> [!IMPORTANT]
-> **Functionality Over False Positives:**  
-> AutoRod uses low-level hardware input simulation (`SendInput`) and high-speed screen capture (`MSS`). These legitimate automation techniques are sometimes flagged as `Riskware` or `GameTool` by heuristic antivirus algorithms.
->
-> In AutoRod, **application functionality and tool fidelity are strictly prioritized over catering to antivirus heuristics**. Risk is acknowledged with full open-source transparency. Read the complete guide: **[docs/SECURITY_AND_TRUST.md](docs/SECURITY_AND_TRUST.md)**.
->
-> If Windows Defender alerts during installation, you can add an exclusion with our included script:
-> ```powershell
-> powershell -ExecutionPolicy Bypass -File .\scripts\add_defender_exclusion.ps1
-> ```
+### Note about Antivirus
+Because AutoRod captures the screen and sends mouse clicks, some antivirus software might flag it as an auto-clicker or riskware. This is normal for automation tools. If Windows Defender blocks it, you can add an exclusion to the install folder using:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\add_defender_exclusion.ps1
+```
+For more details, see [docs/SECURITY_AND_TRUST.md](docs/SECURITY_AND_TRUST.md).
 
-### Building from Source
+### Run from Source
 ```bash
 git clone https://github.com/zeraxr/AutoRod.git
 cd AutoRod
@@ -51,53 +45,43 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Run application
+# Run
 python main.py
 
-# Run quality test suite
+# Tests
 $env:PYTHONPATH="src"
 python -m unittest discover -s tests
-
-# Build distribution packages (installer, portable zip, and checksums)
-python scripts/build_distribution.py
 ```
 
 ---
 
+<a id="español"></a>
 <a id="espanol"></a>
-## 🇪🇸 Español
+## 🇨🇱 Español
 
-**AutoRod** es un bot de pesca automatizado de última generación para **[lofi.town](https://lofi.town/)**. Construido bajo Clean Architecture en Python con OpenCV y una interfaz moderna en Flutter (Flet), utiliza visión por computadora pura para sincronizar el minijuego de pesca sin inyección en memoria ni manipulación de archivos del navegador.
+**AutoRod** es un bot de pesca para **[lofi.town](https://lofi.town/)**. Usa visión por computadora para detectar el minijuego de pesca, acertar a tiempo, lanzar la caña y saltar las recompensas. Funciona mirando la pantalla y simulando clics, sin inyectar memoria ni modificar el juego.
 
-### Características Principales
-* **Motor de Visión Adaptativo:** Reconocimiento geométrico y template matching multi-escala con calibración automática.
-* **Pipeline de Entrada Concurrente:** Arquitectura Productor-Consumidor con hilos desacoplados y simulación de entrada de hardware Win32 (`SendInput`) con suavizado humano opcional.
-* **Interfaz Líquida y Reactiva:** Motor Flet con 6 paletas de color accesibles (WCAG 2.2), ajuste de transparencia en caliente y panel de telemetría y diagnósticos "rayos X" en vivo.
-* **Controles de Emergencia:** Parada inmediata OS-level mediante tecla `[Q]` y pausa cooperativa con `[Shift+Q]`.
-* **Distribución de Alta Confianza:** Empaquetado profesional sin UPX (anti falsos positivos), con metadatos oficiales PE de Windows, manifiesto formal de compatibilidad Windows 10/11 y empaquetador Inno Setup.
+### Qué hace
+* **Pesca automática:** Detecta los botones "Cast" y "Reel" de forma automática.
+* **Acierto en el minijuego:** Sigue el dial circular y hace clic justo cuando la aguja pasa por la zona verde.
+* **Salto de recompensas:** Pasa rápido las cartas de peces capturados para seguir pescando sin pausas.
+* **Modo segundo plano:** Puede enviar clics directos a la ventana del juego sin mover el cursor de tu ratón, permitiéndote seguir usando el computador mientras pesca.
+* **Visor en vivo:** Muestra en tiempo real qué está detectando el bot en pantalla.
+* **Freno de emergencia:** Presiona `Q` en cualquier momento para cerrar el bot al instante, o `Shift+Q` para pausar.
 
-### Formatos de Descarga
-Descarga la versión más reciente desde la sección **[Releases](../../releases)**:
-1. **Instalador Oficial (`AutoRod-v2.0.0-Setup.exe`):** Recomendado. Instala en el espacio de usuario (`%LOCALAPPDATA%\Programs\AutoRod`) sin requerir permisos de Administrador, crea accesos directos y permite desinstalación limpia desde Windows.
-2. **Paquete Portable (`AutoRod-v2.0.0-Portable.zip`):** Descomprime y ejecuta `AutoRod.exe` directamente sin instalación previa.
-3. **Verificación de Autenticidad (SHA-256):** Comprueba que tu descarga es idéntica a la oficial con:
-   ```powershell
-   Get-FileHash .\AutoRod-v2.0.0-Setup.exe -Algorithm SHA256
-   ```
+### Descarga e Instalación
+Descarga la versión más reciente en la pestaña de **[Releases](../../releases)**:
+* **Instalador (`AutoRod-Setup.exe`):** Recomendado. Se instala como cualquier programa de Windows, con accesos directos y desinstalador limpio.
+* **Portable (`AutoRod-Portable.zip`):** Descomprime y abre `AutoRod.exe`. No requiere instalación.
 
-### 🛡️ Política de Seguridad y Confianza con Antivirus
-> [!IMPORTANT]
-> **La Funcionalidad está por sobre la Heurística Antivirus:**  
-> Debido a que AutoRod emite clics físicos de baja latencia (`SendInput`) y realiza lecturas de pantalla a alta velocidad, algunos antivirus heurísticos pueden clasificarlo preventivamente como `Riskware` o `AutoClicker`.
->
-> La política de AutoRod es **priorizar la funcionalidad y potencia de las herramientas sin comprometerlas por apaciguar a los antivirus**. Dicho riesgo se asume con total transparencia de código abierto. Consulta los detalles en: **[docs/SECURITY_AND_TRUST.md](docs/SECURITY_AND_TRUST.md)**.
->
-> Para registrar la exclusión en Windows Defender con un clic:
-> ```powershell
-> powershell -ExecutionPolicy Bypass -File .\scripts\add_defender_exclusion.ps1
-> ```
+### Nota sobre Antivirus
+Como AutoRod captura la pantalla y envía clics automáticos, algunos antivirus pueden marcarlo como auto-clicker o herramienta sospechosa. Esto es común en este tipo de programas. Si Windows Defender lo bloquea, puedes agregar la carpeta a exclusiones ejecutando:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\add_defender_exclusion.ps1
+```
+Para más información, revisa [docs/SECURITY_AND_TRUST.md](docs/SECURITY_AND_TRUST.md).
 
-### Configuración para Desarrolladores y Compilación
+### Ejecutar desde Código Fuente
 ```bash
 git clone https://github.com/zeraxr/AutoRod.git
 cd AutoRod
@@ -105,19 +89,16 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Ejecutar la aplicación
+# Ejecutar
 python main.py
 
-# Ejecutar la suite de pruebas unitarias
+# Pruebas
 $env:PYTHONPATH="src"
 python -m unittest discover -s tests
-
-# Generar paquetes de distribución (instalador, portable y hashes)
-python scripts/build_distribution.py
 ```
 
-### Contribuciones y Contacto
-Contribuciones, mejoras y reportes son bienvenidos. Discord: **`_zera.`**
+### Contacto y Dudas
+Si encuentras un error o quieres sugerir mejoras, contáctame por Discord: **`_zera.`**
 
-### Advertencia Legal
-Software desarrollado para fines de investigación y educativos. El uso de automatizaciones puede violar los Términos de Servicio de lofi.town. Úsalo bajo tu propia responsabilidad.
+### Descargo de responsabilidad
+Proyecto creado con fines educativos. Usar bots puede infringir las reglas de lofi.town. Úsalo bajo tu propio criterio.
