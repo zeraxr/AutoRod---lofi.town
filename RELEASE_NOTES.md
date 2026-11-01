@@ -1,6 +1,6 @@
 # 🎣 AutoRod v2.0.0 Release Notes
 
-AutoRod v2.0 is a complete overhaul of the fishing bot for [lofi.town](https://lofi.town/). This release replaces the legacy Tkinter prototype with Clean Architecture, an adaptive computer vision pipeline, a modern Flutter-based desktop GUI (Flet), silent background clicking, and standalone portable distribution.
+AutoRod v2.0 is a complete overhaul of the fishing bot for [lofi.town](https://lofi.town/). This release replaces the legacy Tkinter prototype with Clean Architecture, an adaptive computer vision pipeline, a modern Flutter-based desktop GUI (Flet), low-latency native Win32 input, and standalone portable distribution.
 
 ---
 
@@ -9,7 +9,7 @@ AutoRod v2.0 is a complete overhaul of the fishing bot for [lofi.town](https://l
 | Feature / Aspect | 🔴 AutoRod v1.0 (Legacy) | 🟢 AutoRod v2.0 (New) |
 | :--- | :--- | :--- |
 | **User Interface (GUI)** | Basic Tkinter window with raw buttons and standard OS frame. | Modern Flutter-based GUI (Flet) with a custom frameless titlebar, live diagnostic viewport, and 6 color themes. |
-| **Click Modes (Mouse Control)** | Only physical mouse grabbing via PyAutoGUI. Interrupted PC usage. | **Silent Background Mode (PostMessage)** sends clicks directly without moving the mouse; plus low-latency **SendInput**. |
+| **Click Modes (Mouse Control)** | Slow, high-overhead PyAutoGUI mouse calls. | Native Win32 **SendInput** engine with sub-millisecond dispatch. *(Note: Silent background clicking is experimental and currently in development; the bot actively moves the mouse cursor to click).* |
 | **Vision & Minigame Detection** | Basic template matching sensitive to scaling and screen resolution. | Adaptive geometric tracking with multi-scale template pyramids, needle hit confirmation, and high-speed dial ROI tracking. |
 | **Screen Capture & Performance** | Slower PyAutoGUI/PIL screenshots (~10-15 FPS) with noticeable CPU load. | High-speed DirectX/GDI capture via `MSS` running at 60 FPS with low CPU consumption. |
 | **Reward Handling** | Required manual clicks or waited passively to dismiss caught fish cards. | Automatic fish catch card detection and instant click-skipping routine. |
@@ -45,7 +45,7 @@ AutoRod v2.0 is a complete overhaul of the fishing bot for [lofi.town](https://l
 
 Novedades destacadas de AutoRod v2.0:
 
-* **Modo Silencioso en Segundo Plano:** Pesca sin mover el cursor de tu ratón (`PostMessage`), permitiéndote trabajar o navegar mientras el bot opera en otra ventana.
+* **Control Nativo Win32 (SendInput):** Sustitución de PyAutoGUI por llamadas Win32 de baja latencia con precisión de milisegundos. *(Nota: El modo silencioso en segundo plano sin mover el ratón continúa en desarrollo experimental; actualmente el bot mueve el cursor físico para asegurar el clic).*
 * **Interfaz Moderna en Flutter (Flet):** Barra de título personalizada sin marco, selector de temas, visor de rayos X en tiempo real y panel de telemetría.
 * **Visión Adaptativa a 60 FPS:** Detección de diales, aguja y botones con salto automático de tarjetas de peces capturados.
 * **Freno de Emergencia:** Presiona `Q` en cualquier momento para cerrar el bot inmediatamente.
