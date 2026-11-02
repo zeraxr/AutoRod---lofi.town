@@ -145,102 +145,71 @@ class TestWin32PostMessageSimulator(unittest.TestCase):
 
 
 class TestSettingsViewTooltipsAndModes(unittest.TestCase):
-    def test_settings_view_has_all_tooltips_and_modes(self) -> None:
-        """Verifica que cada opción en la vista de configuración tenga su tooltip descriptivo."""
-        config = AppConfig(input_backend="postmessage")
+    def test_settings_view_has_figma_controls_and_options(self) -> None:
+        """Verifica que la vista de configuración oficial de Figma 1:1 contenga todos sus controles."""
+        config = AppConfig(monitor_index=1, target_fps=60)
         view = FletSettingsView(config=config)
 
-        # 1. Modo de Clics
-        self.assertIsNotNone(view._backend_dropdown.tooltip)
-        self.assertIn("PostMessage", view._backend_dropdown.tooltip)
-        self.assertIn("SendInput", view._backend_dropdown.tooltip)
+        # 1. Pantalla de origen (Monitor)
+        self.assertIsNotNone(view._monitor_dropdown)
+        self.assertEqual(view._monitor_dropdown.value, "1")
 
-        # Verificar opciones del dropdown
-        option_keys = [opt.key for opt in view._backend_dropdown.options]
-        self.assertIn("postmessage", option_keys)
-        self.assertIn("sendinput", option_keys)
-        self.assertEqual(view._backend_dropdown.value, "postmessage")
+        # 2. Frecuencia de captura (FPS)
+        self.assertIsNotNone(view._fps_dropdown)
+        self.assertEqual(view._fps_dropdown.value, "60")
+        fps_values = [opt.key for opt in view._fps_dropdown.options]
+        self.assertIn("30", fps_values)
+        self.assertIn("60", fps_values)
+        self.assertIn("120", fps_values)
 
-        # 2. Monitor de Captura
-        self.assertIsNotNone(view._monitor_dropdown.tooltip)
-        self.assertIn("juego", view._monitor_dropdown.tooltip.lower())
+        # 3. Switches de comportamiento oficial de Figma
+        self.assertTrue(view._defocus_switch.value)
+        self.assertTrue(view._tray_switch.value)
+        self.assertFalse(view._startup_switch.value)
 
-        # 3. Guardar tamaño (Caché de resolución)
-        self.assertIsNotNone(view._cache_switch.tooltip)
-        self.assertIn("cpu", view._cache_switch.tooltip.lower())
+        # 4. Botones de acción
+        self.assertIsNotNone(view._save_btn)
+        self.assertIsNotNone(view._reset_btn)
 
-        # 4. Sensibilidad de detección
-        self.assertIsNotNone(view._thresh_slider.tooltip)
-        self.assertIn("0.63", view._thresh_slider.tooltip)
+    def test_settings_view_saving_and_reset(self) -> None:
+        """Verifica que restablecer y guardar actualicen la configuración correctamente."""
+        saved_cfg = None
+        def _on_save(c: AppConfig) -> None:
+            nonlocal saved_cfg
+            saved_cfg = c
 
-        # 5. Entrada humanizada
-        self.assertIsNotNone(view._humanized_switch.tooltip)
-        self.assertIn("humanizado", view._humanized_switch.tooltip.lower())
+        config = AppConfig(monitor_index=1, target_fps=60, pause_on_defocus=True)
+        view = FletSettingsView(config=config, on_save_callback=_on_save)
 
-        # 6. Botón de guardado
-        self.assertIsNotNone(view._save_btn.tooltip)
-        self.assertIn("guardar", view._save_btn.tooltip.lower())
+        # Modificar valores temporalmente
+        view._fps_dropdown.value = "120"
+        view._defocus_switch.value = False
 
-    def test_settings_view_visual_tracking_cards_and_hints(self) -> None:
-        """Verifica la jerarquía visual de la industria: anclas de icono, hint boxes y tracking tipográfico."""
-        config = AppConfig()
-        view = FletSettingsView(config=config)
+        # Reset devuelve a los valores originales (60 FPS)
+        view._on_reset_click(None)
+        self.assertEqual(view._fps_dropdown.value, "60")
+        self.assertTrue(view._defocus_switch.value)
 
-        # 5 Anclas de icono para el escaneo vertical en el rail izquierdo
-        self.assertEqual(len(view._icon_anchors), 5)
-        for anchor in view._icon_anchors:
-            self.assertEqual(anchor.width, 26)
-            self.assertEqual(anchor.height, 26)
-            self.assertEqual(anchor.border_radius, 6)
+        # Ahora modificar y guardar
+        view._fps_dropdown.value = "120"
+        view._defocus_switch.value = False
+        view._on_save_click(None)
 
-        # 5 Cajas de hint técnico contextual limpio
-        self.assertEqual(len(view._hint_boxes), 5)
-
-    def test_settings_view_live_visual_tracking_updates(self) -> None:
-        """Verifica que el slider y los selectores ofrezcan feedback visual en tiempo real."""
-        config = AppConfig(button_threshold=0.63, input_backend="postmessage")
-        view = FletSettingsView(config=config)
-
-        # 1. Slider en 0.63 (Óptimo)
-        view._update_slider_badge(0.63)
-        self.assertIn("Óptimo", view._slider_status_text.value)
-
-        # Slider en 0.50 (Sensible)
-        view._update_slider_badge(0.50)
-        self.assertIn("Sensible", view._slider_status_text.value)
-
-        # Slider en 0.78 (Estricto)
-        view._update_slider_badge(0.78)
-        self.assertIn("Estricto", view._slider_status_text.value)
-
-        # 2. Notas dinámicas de backend
-        view._update_backend_note("postmessage")
-        self.assertIn("Silencioso", view._backend_active_note.value)
-
-        view._update_backend_note("sendinput")
-        self.assertIn("Físico", view._backend_active_note.value)
-
-        view._update_backend_note("interception")
-        self.assertIn("Kernel", view._backend_active_note.value)
+        self.assertIsNotNone(saved_cfg)
+        self.assertEqual(saved_cfg.target_fps, 120)
+        self.assertFalse(saved_cfg.pause_on_defocus)
 
     def test_settings_view_theme_reactivity(self) -> None:
-        """Verifica que la vista actualice los acentos de hints ante cambios en la paleta."""
-        from autorod.infrastructure.ui.flet.theme import ThemeManager
+        """Verifica que la vista responda reactivamente ante cambios de tema."""
+        from autorod.infrastructure.ui.flet.theme import ThemeManager, create_theme_tokens
         theme_mgr = ThemeManager.get_instance("default")
         view = FletSettingsView(config=AppConfig(), theme_manager=theme_mgr)
 
-        theme_mgr.set_theme("red")
-        self.assertEqual(view._tokens.id, "red")
-        for anchor in view._icon_anchors:
-            self.assertEqual(anchor.content.color, view._tokens.primary)
-
-        # Restaurar tema default
-        theme_mgr.set_theme("default")
-        self.assertEqual(view._tokens.id, "default")
-        for anchor in view._icon_anchors:
-            self.assertEqual(anchor.content.color, view._tokens.primary)
-        for hint_box in view._hint_boxes:
-            self.assertEqual(hint_box.border.left.color, view._tokens.primary)
+        new_tokens = create_theme_tokens("light", "#5554d9")
+        view.apply_theme(new_tokens)
+        self.assertEqual(view._tokens.mode, "light")
+        self.assertEqual(view.bgcolor, "#f2f3f8")
+        self.assertEqual(view._title_text.color, "#111827")
 
 
 if __name__ == "__main__":

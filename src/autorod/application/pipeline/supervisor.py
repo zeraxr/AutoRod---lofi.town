@@ -56,9 +56,9 @@ class PipelineSupervisor:
             raise RuntimeError("Pipeline ya está en ejecución.")
 
         self._threads = [
-            threading.Thread(target=self._producer.run, name="Th-Producer"),
-            threading.Thread(target=self._consumer.run, name="Th-Vision"),
-            threading.Thread(target=self._executor.run, name="Th-Executor")
+            threading.Thread(target=self._producer.run, name="Th-Producer", daemon=True),
+            threading.Thread(target=self._consumer.run, name="Th-Vision", daemon=True),
+            threading.Thread(target=self._executor.run, name="Th-Executor", daemon=True)
         ]
 
         for t in self._threads:

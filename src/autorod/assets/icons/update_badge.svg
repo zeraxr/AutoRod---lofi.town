@@ -1,0 +1,8 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="44" height="38" viewBox="0 0 44 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Actualizaci&#195;&#179;n disponible">
+<path id="Ellipse" d="M38.5 10C38.5 11.933 36.933 13.5 35 13.5C33.067 13.5 31.5 11.933 31.5 10C31.5 8.067 33.067 6.5 35 6.5C36.933 6.5 38.5 8.067 38.5 10Z" fill="#3B82F6" stroke="#1A1B26"/>
+<g id="&#195;&#141;cono de actualizaci&#195;&#179;n">
+<path id="Vector" d="M15.25 19C15.25 17.2098 15.9612 15.4929 17.227 14.227C18.4929 12.9612 20.2098 12.25 22 12.25C23.89 12.25 25.6975 13 27.055 14.305L28.75 16M25 16H28.75V12.25M28.75 19C28.75 20.7902 28.0388 22.5071 26.773 23.773C25.5071 25.0388 23.7902 25.75 22 25.75C20.11 25.75 18.3025 25 16.945 23.695L15.25 22M19 22H15.25V25.75" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" stroke="#D7DEEA"/>
+</g>
+</g>
+</svg>

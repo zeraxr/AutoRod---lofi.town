@@ -33,23 +33,23 @@ class FletMetricCard(ft.Container):
         )
 
         self._title_text = ft.Text(
-            value=self._title,
+            value=self._title.upper(),
             size=10,
             weight=ft.FontWeight.BOLD,
-            color="#a1a1aa"
+            color="#a5b4ff"
         )
 
         self._val_text = ft.Text(
             value=self._val,
-            size=14,
+            size=13.5,
             weight=ft.FontWeight.BOLD,
-            color=self._theme.primary
+            color="#ffffff"
         )
 
         self._sub_text = ft.Text(
             value=self._sub,
             size=10,
-            color="#71717a"
+            color="#8f99b3"
         )
 
         header_row = ft.Row(
@@ -68,13 +68,13 @@ class FletMetricCard(ft.Container):
                     self._val_text,
                     self._sub_text
                 ],
-                spacing=3,
+                spacing=4,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor="#14151c",
-            border=ft.Border.all(1, "#1e1f29"),
-            border_radius=8,
-            padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+            bgcolor="#141a2a",
+            border=ft.Border.all(1, "#1b2233"),
+            border_radius=12,
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12),
             animate=ft.Animation(160, ft.AnimationCurve.EASE_OUT)
         )
 
@@ -82,6 +82,10 @@ class FletMetricCard(ft.Container):
 
     def _on_theme_updated(self, tokens: ThemeTokens) -> None:
         self._theme = tokens
+        self.bgcolor = tokens.sub_bg
+        self.border = ft.Border.all(1, tokens.card_border)
+        self._title_text.color = tokens.text_secondary
+        self._sub_text.color = tokens.text_muted
         self._dot.bgcolor = tokens.primary
         if self._use_theme_color:
             self._val_text.color = tokens.primary

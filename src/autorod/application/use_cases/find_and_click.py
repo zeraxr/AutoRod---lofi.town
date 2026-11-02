@@ -1,6 +1,6 @@
 import time
 import logging
-from collections.abc import Sequence
+from collections.abc import Sequence, Callable
 from autorod.domain.models.geometry import Point
 from autorod.domain.models.input_commands import (
     InputCommand,
@@ -43,7 +43,8 @@ class FindAndClickTask(IBotTask):
             card_initial_delay_s: float = 0.50,
             card_cooldown_s: float = 0.12,
             max_card_dismiss_clicks: int = 5,
-            state_machine: FishingStateMachine | None = None
+            state_machine: FishingStateMachine | None = None,
+            on_cycle_completed: Callable[[], None] | None = None,
     ) -> None:
         self.enabled = True
         self._last_click_time = 0.0
@@ -54,6 +55,8 @@ class FindAndClickTask(IBotTask):
         self._card_cooldown_s = card_cooldown_s
         self._max_card_dismiss_clicks = max_card_dismiss_clicks
         self._fsm = state_machine or FishingStateMachine(minigame_timeout_s=16.0, card_timeout_s=6.0)
+        self._on_cycle_completed = on_cycle_completed
+        self._cycle_completed_reported = False
         self._minigame_hits = 0
         self._card_dismiss_clicks = 0
         self._card_dismiss_start = 0.0
@@ -95,6 +98,13 @@ class FindAndClickTask(IBotTask):
                 self._card_dismiss_clicks = 0
                 self._minigame_hits = 0
                 self._last_card_center = None
+                if not self._cycle_completed_reported:
+                    self._cycle_completed_reported = True
+                    if self._on_cycle_completed:
+                        try:
+                            self._on_cycle_completed()
+                        except Exception as exc:
+                            logger.warning("Error en callback on_cycle_completed: %s", exc)
                 # Se procesará como botón CAST! abajo
             else:
                 elapsed = now - self._card_dismiss_start
@@ -109,6 +119,13 @@ class FindAndClickTask(IBotTask):
                     self._card_dismiss_clicks = 0
                     self._minigame_hits = 0
                     self._last_card_center = None
+                    if not self._cycle_completed_reported:
+                        self._cycle_completed_reported = True
+                        if self._on_cycle_completed:
+                            try:
+                                self._on_cycle_completed()
+                            except Exception as exc:
+                                logger.warning("Error en callback on_cycle_completed: %s", exc)
                     return []
 
                 # Si la tarjeta sigue detectada, refrescar su centro
@@ -195,6 +212,7 @@ class FindAndClickTask(IBotTask):
             self._fsm.transition_to(FishingState.CARD_DISMISS, now)
             self._card_dismiss_start = now
             self._card_dismiss_clicks = 0
+            self._cycle_completed_reported = False
             self._last_card_center = result.center
             self._last_click_time = 0.0
             logger.info(

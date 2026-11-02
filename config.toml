@@ -1,9 +1,37 @@
 [autorod]
-target_fps = 60
+# Captura y Pantalla
+target_fps = 120
+monitor_index = 1
+capture_source = "mss"
+
+# Comportamiento
+pause_on_defocus = false
+minimize_to_tray = true
+open_at_startup = false
+shortcut_toggle = "F8"
+shortcut_stop = "F9"
+
+# Personalización
+theme_mode = "dark"
+accent_color = "#5554d9"
+show_greetings = true
+use_local_time = true
+enable_transition_animations = true
+language = "es"
+
+# Parámetros de Detección y Ritmo
+profile = "balanced"
+min_confidence = 0.85
+color_tolerance = 0.20
+search_area = "fullscreen"
+cast_delay_ms = 1500
+max_wait_bite_sec = 30
+retry_on_lost = true
+pause_on_consecutive_errors = 3
+
+# Parámetros Internos del Motor
 input_backend = "sendinput"
 vision_strategy = "geometric_vision_sota"
-capture_source = "mss"
-monitor_index = 1
 button_threshold = 0.63
 cache_button_size = true
 humanized_input = false

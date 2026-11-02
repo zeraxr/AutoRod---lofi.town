@@ -176,17 +176,17 @@ class FletKineticGlowButton(ft.Container):
 
 class FletKineticEmergencyButton(ft.Container):
     """
-    Botón de parada de emergencia [Q] con diseño táctico sobrio y mate.
+    Botón de parada de emergencia [Alt+Q] con diseño táctico sobrio y mate.
     Utiliza glifo vectorial y dimensiones seguras para eliminar cualquier recorte.
     """
 
     def __init__(
         self,
         on_click: Callable[[], None],
-        text: str = "SALIR [Q]",
+        text: str = "SALIR [Alt+Q]",
         width: int = 124,
         height: int = 38,
-        tooltip: str | None = "Detención incondicional y liberación de recursos [Tecla Q]"
+        tooltip: str | None = "Detención incondicional y liberación de recursos [Left Alt + Q]"
     ) -> None:
         self._on_click_cmd = on_click
         self._icon_ctrl = ft.Icon(ft.Icons.POWER_SETTINGS_NEW_ROUNDED, size=14, color="#fca5a5")

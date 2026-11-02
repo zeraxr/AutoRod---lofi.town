@@ -96,6 +96,14 @@ class FileTemplateRepository(ITemplateRepository):
 
         mat = cv2.imread(str(file_path), cv2.IMREAD_COLOR)
         if mat is None:
+            # Fallback seguro para rutas Windows con caracteres Unicode/acentuados
+            try:
+                raw_bytes = np.fromfile(str(file_path), dtype=np.uint8)
+                mat = cv2.imdecode(raw_bytes, cv2.IMREAD_COLOR)
+            except Exception:
+                mat = None
+
+        if mat is None:
             raise TemplateNotFoundError(
                 f"El archivo '{file_path}' no pudo ser decodificado como imagen OpenCV."
             )

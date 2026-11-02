@@ -1,8 +1,12 @@
+import logging
 import threading
 from typing import Any
 from autorod.domain.ports.capture import ICaptureSource
 from autorod.domain.ports.clock import IClock
 from autorod.application.pipeline.queues import LatestFrameQueue, _STOP
+
+
+logger = logging.getLogger(__name__)
 
 
 class CaptureProducer:
@@ -40,6 +44,8 @@ class CaptureProducer:
                 if sleep_time > 0:
                     self._clock.wait(sleep_time, self._stop_event)
 
+        except Exception as exc:
+            logger.error("Error imprevisto en bucle de captura del productor: %s", exc, exc_info=True)
         finally:
             self._source.stop()
             self._queue.put_latest(_STOP)

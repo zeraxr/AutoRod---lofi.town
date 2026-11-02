@@ -146,7 +146,7 @@ class FletCustomTitleBar(ft.Container):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            bgcolor="#070709",
+            bgcolor="#1a1b26",
             border=None,
             height=36,
             padding=ft.Padding.only(left=0, right=0, top=0, bottom=0)
@@ -276,3 +276,11 @@ class FletCustomTitleBar(ft.Container):
             actions_alignment=ft.MainAxisAlignment.END
         )
         p.open_dialog(dialog)
+
+    def apply_theme(self, tokens: ThemeTokens) -> None:
+        self.bgcolor = tokens.shell_bg
+        self._title_text.color = tokens.text_primary
+        self._btn_minimize.icon_color = tokens.text_primary
+        self._btn_maximize.icon_color = tokens.text_primary
+        from autorod.infrastructure.ui.flet.utils import safe_update
+        safe_update(self)

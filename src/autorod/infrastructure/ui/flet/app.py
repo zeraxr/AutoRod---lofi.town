@@ -39,6 +39,8 @@ from autorod.infrastructure.ui.flet.components.skeleton_view import FletDashboar
 from autorod.infrastructure.ui.flet.components.theme_studio_view import FletThemeStudioView
 from autorod.infrastructure.ui.flet.components.settings_view import FletSettingsView
 from autorod.infrastructure.ui.flet.components.telemetry_view import FletTelemetryView
+from autorod.infrastructure.ui.flet.components.parameters_view import FletParametersView
+from autorod.infrastructure.ui.flet.components.help_view import FletHelpView
 from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleBar
 from autorod.infrastructure.updater.github_checker import run_async_update_check
 from autorod.infrastructure.ui.flet.utils import (
@@ -115,6 +117,11 @@ class FletMainApp:
         self.settings_view: FletSettingsView | None = None
         self.theme_studio: FletThemeStudioView | None = None
         self.telemetry_view: FletTelemetryView | None = None
+        self.parameters_view: FletParametersView | None = None
+        self.help_view: FletHelpView | None = None
+        self._action_btn: Any = None
+        self._preview_btn: Any = None
+        self._emergency_btn: Any = None
 
         # 4. Monitoreo Global de Teclas OS-Level [Q] y [Shift+Q]
         self._start_global_emergency_listener()
@@ -151,7 +158,9 @@ class FletMainApp:
         self.skeleton_view = FletDashboardSkeleton(theme_manager=self.theme_mgr)
         self.viewport = FletDiagnosticsViewport(
             theme_manager=self.theme_mgr,
-            on_clear_cache=self.recalibrate_view
+            on_clear_cache=self.recalibrate_view,
+            on_toggle_bot=self.toggle_bot_action,
+            config=self.config_data
         )
         self.settings_view = FletSettingsView(
             config=self.config_data,
@@ -162,11 +171,19 @@ class FletMainApp:
         self.theme_studio = FletThemeStudioView(
             theme_manager=self.theme_mgr,
             config=self.config_data,
-            config_path=self.config_path
+            config_path=self.config_path,
+            on_preferences_changed=self._on_preferences_changed
         )
         self.telemetry_view = FletTelemetryView(theme_manager=self.theme_mgr)
+        self.parameters_view = FletParametersView(
+            config=self.config_data,
+            config_path=self.config_path,
+            on_save_callback=self._on_settings_saved,
+            theme_manager=self.theme_mgr
+        )
+        self.help_view = FletHelpView(theme_manager=self.theme_mgr)
 
-        # 2. Sidebar Colapsable con Navegación Líquida e Integración de Parámetros
+        # 2. Sidebar Colapsable con Navegación Líquida (6 pestañas de Figma)
         self.sidebar = FletCollapsibleGooeySidebar(
             on_tab_selected=self._switch_view,
             theme_manager=self.theme_mgr,
@@ -175,17 +192,19 @@ class FletMainApp:
 
         self._views: dict[str, ft.Container] = {
             "dashboard": self.viewport,
-            "settings": self.viewport,
+            "settings": self.settings_view,
             "palette": self.theme_studio,
-            "telemetry": self.telemetry_view
+            "telemetry": self.telemetry_view,
+            "parameters": self.parameters_view,
+            "help": self.help_view
         }
 
         # 3. Topbar de Controles
         self._breadcrumb_text = ft.Text(
-            "Dashboard",
+            "Inicio",
             size=13,
             weight=ft.FontWeight.W_600,
-            color="#e4e4e7"
+            color=self.theme_mgr.current.text_primary
         )
 
         self._preview_btn = FletKineticGlowButton(
@@ -210,11 +229,11 @@ class FletMainApp:
         )
         self._emergency_btn = FletKineticEmergencyButton(
             on_click=self.emergency_shutdown,
-            text="SALIR [Q]",
+            text="SALIR [Alt+Q]",
             width=122
         )
 
-        topbar = ft.Container(
+        self._topbar = ft.Container(
             content=ft.Row(
                 controls=[
                     self._breadcrumb_text,
@@ -230,17 +249,18 @@ class FletMainApp:
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            bgcolor="#070709",
+            bgcolor=self.theme_mgr.current.shell_bg,
             border=None,
             padding=ft.Padding.symmetric(horizontal=16, vertical=8)
         )
 
-        # Conmutador animado para transiciones fluidas entre pestañas (FADE con curvas cúbicas)
+        # Conmutador animado para transiciones fluidas entre pestañas (FADE con curvas cúbicas o INSTANTÁNEO si se desactiva)
+        enable_anim = self.config_data.enable_transition_animations
         self._view_switcher = ft.AnimatedSwitcher(
             content=self.viewport,
-            transition=ft.AnimatedSwitcherTransition.FADE,
-            duration=240,
-            reverse_duration=180,
+            transition=ft.AnimatedSwitcherTransition.FADE if enable_anim else ft.AnimatedSwitcherTransition.NONE,
+            duration=240 if enable_anim else 0,
+            reverse_duration=180 if enable_anim else 0,
             switch_in_curve=ft.AnimationCurve.EASE_OUT_CUBIC,
             switch_out_curve=ft.AnimationCurve.EASE_IN_CUBIC,
             expand=True
@@ -249,8 +269,8 @@ class FletMainApp:
         self._content_area = ft.Container(
             content=self._view_switcher,
             expand=True,
-            bgcolor="#0f1015",
-            border_radius=ft.BorderRadius.only(top_left=12)
+            bgcolor=self.theme_mgr.current.canvas_bg,
+            border_radius=ft.BorderRadius.only(top_left=16, bottom_left=16)
         )
 
         # Barra de Título Superior Personalizada (Estilo Discord / Frameless)
@@ -268,7 +288,7 @@ class FletMainApp:
                         self.sidebar,
                         ft.Column(
                             controls=[
-                                topbar,
+                                self._topbar,
                                 self._content_area
                             ],
                             spacing=0,
@@ -304,17 +324,105 @@ class FletMainApp:
 
     def _update_breadcrumb_text(self) -> None:
         titles = {
-            "dashboard": "Dashboard",
+            "dashboard": "Inicio",
             "settings": "Configuración",
             "palette": "Personalización",
-            "telemetry": "Telemetría"
+            "telemetry": "Telemetría",
+            "parameters": "Parámetros",
+            "help": "Ayuda"
         }
-        self._breadcrumb_text.value = titles.get(self._current_tab, "Dashboard")
+        self._breadcrumb_text.value = titles.get(self._current_tab, "Inicio")
 
     def _on_theme_changed(self, tokens: ThemeTokens) -> None:
         self._update_breadcrumb_text()
+        if hasattr(self, "_content_area") and self._content_area:
+            self._content_area.bgcolor = tokens.canvas_bg
+        if hasattr(self, "_topbar") and self._topbar:
+            self._topbar.bgcolor = tokens.shell_bg
+        if hasattr(self, "_breadcrumb_text") and self._breadcrumb_text:
+            self._breadcrumb_text.color = tokens.text_primary
+        if hasattr(self, "custom_title_bar") and self.custom_title_bar:
+            self.custom_title_bar.apply_theme(tokens)
+        if hasattr(self, "sidebar") and self.sidebar:
+            self.sidebar._on_theme_updated(tokens)
+        if hasattr(self, "viewport") and self.viewport:
+            self.viewport._on_theme_updated(tokens)
+        if hasattr(self, "settings_view") and self.settings_view:
+            self.settings_view.apply_theme(tokens)
+        if hasattr(self, "theme_studio") and self.theme_studio:
+            self.theme_studio.apply_theme(tokens)
+        if hasattr(self, "telemetry_view") and self.telemetry_view:
+            self.telemetry_view.apply_theme(tokens)
+        if hasattr(self, "parameters_view") and self.parameters_view:
+            self.parameters_view.apply_theme(tokens)
+        if hasattr(self, "help_view") and self.help_view:
+            self.help_view.apply_theme(tokens)
         if self.page:
-            self._breadcrumb_text.update()
+            self.page.bgcolor = tokens.shell_bg
+            safe_page_update(self.page)
+
+    def _on_preferences_changed(self, updated: Any) -> None:
+        """Aplica en tiempo real los cambios del checklist de rendimiento y apariencia."""
+        if isinstance(updated, dict):
+            show_g = updated.get("show_greetings", self.config_data.show_greetings)
+            local_t = updated.get("use_local_time", self.config_data.use_local_time)
+            anim_t = updated.get("enable_transition_animations", self.config_data.enable_transition_animations)
+            theme_m = updated.get("theme_mode", self.config_data.theme_mode)
+            accent_c = updated.get("accent_color", self.config_data.accent_color)
+            self.config_data = AppConfig(
+                target_fps=self.config_data.target_fps,
+                monitor_index=self.config_data.monitor_index,
+                capture_source=self.config_data.capture_source,
+                pause_on_defocus=self.config_data.pause_on_defocus,
+                minimize_to_tray=self.config_data.minimize_to_tray,
+                open_at_startup=self.config_data.open_at_startup,
+                shortcut_toggle=self.config_data.shortcut_toggle,
+                shortcut_stop=self.config_data.shortcut_stop,
+                theme_mode=theme_m,
+                accent_color=accent_c,
+                show_greetings=show_g,
+                use_local_time=local_t,
+                enable_transition_animations=anim_t,
+                language=self.config_data.language,
+                profile=self.config_data.profile,
+                min_confidence=self.config_data.min_confidence,
+                color_tolerance=self.config_data.color_tolerance,
+                search_area=self.config_data.search_area,
+                cast_delay_ms=self.config_data.cast_delay_ms,
+                max_wait_bite_sec=self.config_data.max_wait_bite_sec,
+                retry_on_lost=self.config_data.retry_on_lost,
+                pause_on_consecutive_errors=self.config_data.pause_on_consecutive_errors,
+                input_backend=self.config_data.input_backend,
+                vision_strategy=self.config_data.vision_strategy,
+                button_threshold=self.config_data.button_threshold,
+                cache_button_size=self.config_data.cache_button_size,
+                humanized_input=self.config_data.humanized_input,
+                ui_theme=self.config_data.ui_theme,
+                ui_transparency=self.config_data.ui_transparency,
+            )
+            save_config(self.config_data, self.config_path)
+        elif isinstance(updated, AppConfig):
+            self.config_data = updated
+
+        if self.viewport and hasattr(self.viewport, "set_show_greetings"):
+            self.viewport.set_show_greetings(self.config_data.show_greetings)
+        if self.viewport and hasattr(self.viewport, "set_use_local_time"):
+            self.viewport.set_use_local_time(self.config_data.use_local_time)
+        if self.viewport and hasattr(self.viewport, "apply_button_theme"):
+            self.viewport.apply_button_theme(self.theme_mgr.current.primary)
+
+        if self._view_switcher:
+            if self.config_data.enable_transition_animations:
+                self._view_switcher.duration = 240
+                self._view_switcher.reverse_duration = 180
+                self._view_switcher.transition = ft.AnimatedSwitcherTransition.FADE
+            else:
+                self._view_switcher.duration = 0
+                self._view_switcher.reverse_duration = 0
+                self._view_switcher.transition = ft.AnimatedSwitcherTransition.NONE
+
+        if self.page:
+            safe_page_update(self.page)
 
     def _on_settings_saved(self, updated: AppConfig) -> None:
         self.config_data = updated
@@ -333,7 +441,7 @@ class FletMainApp:
             try:
                 from autorod.infrastructure.input.factory import InputBackendFactory
                 from autorod.infrastructure.input.humanized import HumanizedInputSimulator
-                from autorod.domain.models.clock import SystemClock
+                from autorod.infrastructure.clock.system_clock import SystemClock
 
                 raw_sim = InputBackendFactory.create(updated.input_backend)
                 if updated.humanized_input:
@@ -406,6 +514,9 @@ class FletMainApp:
                             else:
                                 self.viewport.card_cache.update_val("Buscando...", color="#8b8d98", sub="Esperando objetivo")
 
+                        if hasattr(self.viewport, "refresh_greeting"):
+                            self.viewport.refresh_greeting()
+
                         # Forzar refresco del árbol de Flutter incluso cuando la ventana no tiene el foco
                         if self.page:
                             safe_page_update(self.page)
@@ -428,27 +539,20 @@ class FletMainApp:
                         (ctypes.windll.user32.GetAsyncKeyState(0xA0) & 0x8000) or
                         (ctypes.windll.user32.GetAsyncKeyState(0xA1) & 0x8000)
                     )
+                    lalt_pressed = bool(
+                        (ctypes.windll.user32.GetAsyncKeyState(0xA4) & 0x8000) or  # VK_LMENU (Left Alt)
+                        (ctypes.windll.user32.GetAsyncKeyState(0x12) & 0x8000)     # VK_MENU (Alt)
+                    )
 
                     if q_pressed and not q_was_down:
                         q_was_down = True
                         if shift_pressed:
                             logger.info("[HOTKEY] Modo Pausa alternado vía hotkey global 'SHIFT + Q'.")
                             self.toggle_bot_action()
-                        else:
-                            # Debounce cooperativo breve para confirmar si Shift se pulsó casi al unísono
-                            self._stop_event.wait(0.025)
-                            shift_now = bool(
-                                (ctypes.windll.user32.GetAsyncKeyState(0x10) & 0x8000) or
-                                (ctypes.windll.user32.GetAsyncKeyState(0xA0) & 0x8000) or
-                                (ctypes.windll.user32.GetAsyncKeyState(0xA1) & 0x8000)
-                            )
-                            if shift_now:
-                                logger.info("[HOTKEY] Modo Pausa alternado vía hotkey global 'SHIFT + Q'.")
-                                self.toggle_bot_action()
-                            else:
-                                logger.warning("[HOTKEY] Parada de emergencia ejecutada vía tecla global 'Q'.")
-                                self.emergency_shutdown()
-                                break
+                        elif lalt_pressed:
+                            logger.warning("[HOTKEY] Parada de emergencia ejecutada vía hotkey global 'LEFT ALT + Q'.")
+                            self.emergency_shutdown()
+                            break
                     elif not q_pressed:
                         q_was_down = False
                 except Exception:
@@ -468,16 +572,29 @@ class FletMainApp:
         try:
             key = str(getattr(e, "key", "")).strip().lower()
             shift = bool(getattr(e, "shift", False))
+            alt = bool(getattr(e, "alt", False))
 
             if key == "q":
                 if shift:
                     logger.info("Modo Pausa alternado vía evento Flet 'SHIFT + Q'.")
                     self.toggle_bot_action()
-                else:
-                    logger.warning("Cierre de emergencia accionado vía evento Flet 'Q'.")
+                elif alt:
+                    logger.warning("Cierre de emergencia accionado vía evento Flet 'LEFT ALT + Q'.")
                     self.emergency_shutdown()
-            elif key in ("1", "2", "3", "4"):
-                tab_map = {"1": "dashboard", "2": "settings", "3": "palette", "4": "telemetry"}
+            elif key == "f8":
+                self.toggle_bot_action()
+            elif key == "f9":
+                if self._bot_running:
+                    self.toggle_bot_action()
+            elif key in ("1", "2", "3", "4", "5", "6"):
+                tab_map = {
+                    "1": "dashboard",
+                    "2": "settings",
+                    "3": "palette",
+                    "4": "telemetry",
+                    "5": "parameters",
+                    "6": "help"
+                }
                 target_tab = tab_map.get(key)
                 if target_tab and hasattr(self, "sidebar") and self.sidebar:
                     self.sidebar.select_tab(target_tab)
@@ -486,10 +603,20 @@ class FletMainApp:
 
     def toggle_bot_action(self) -> None:
         self._bot_running = not self._bot_running
-        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "executor"):
-            self.runner.supervisor.executor.enabled = self._bot_running
+        if hasattr(self.runner, "supervisor"):
+            if hasattr(self.runner.supervisor, "executor"):
+                self.runner.supervisor.executor.enabled = self._bot_running
+            if hasattr(self.runner.supervisor, "consumer"):
+                self.runner.supervisor.consumer.enabled = self._bot_running
 
         logger.info("[ESTADO] Bot %s por el usuario.", "REANUDADO" if self._bot_running else "PAUSADO")
+
+        # Al reanudar o pausar el bot, purgar la memoria de escala para que
+        # al arrancar comience en búsqueda constante y limpia sin residuos previos
+        if self.vision_strategy and hasattr(self.vision_strategy, "clear_scale_cache"):
+            self.vision_strategy.clear_scale_cache()
+            if self.viewport:
+                self.viewport.card_cache.update_val("Recalibrando...", color="#38bdf8", sub="Re-escaneando escalas")
 
         if self._action_btn:
             if self._bot_running:
@@ -512,6 +639,8 @@ class FletMainApp:
 
     def toggle_diagnostics_feed(self) -> None:
         self._diagnostics_active = not self._diagnostics_active
+        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "consumer"):
+            self.runner.supervisor.consumer.preview_enabled = self._diagnostics_active
         if self.viewport:
             self.viewport.set_preview_active(self._diagnostics_active)
         if self._preview_btn:
@@ -541,7 +670,7 @@ class FletMainApp:
             safe_page_update(self.page)
 
     def emergency_shutdown(self) -> None:
-        logger.warning("Cerrado de emergencia accionado por el usuario [Q].")
+        logger.warning("Cerrado de emergencia accionado por el usuario [LEFT ALT + Q].")
         self._stop_event.set()
         FletWindowFX.restore_process_timers()
         try:
@@ -570,6 +699,9 @@ class FletMainApp:
         finally:
             if self.page:
                 close_app_window(self.page)
+            from autorod.infrastructure.ui.flet.utils import terminate_child_processes
+            terminate_child_processes()
+            os._exit(0)
 
     def run(self) -> None:
         """Inicia el ciclo principal de la aplicación Flet."""

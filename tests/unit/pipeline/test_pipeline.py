@@ -91,6 +91,33 @@ class TestPipelineFlow(unittest.TestCase):
         executor.enabled = False
         self.assertFalse(executor.enabled)
 
+    def test_vision_consumer_idle_when_disabled_and_no_preview(self) -> None:
+        """Verifica que VisionConsumer no analice ni gaste CPU mientras el bot está en pausa."""
+        import threading
+        from unittest.mock import MagicMock
+        from autorod.application.pipeline.queues import _STOP
+
+        vision = MagicMock()
+        frame_q: LatestFrameQueue[Any] = LatestFrameQueue(maxsize=1)
+        action_q: queue.Queue[Any] = queue.Queue(maxsize=5)
+        sink = QueueDiagnosticsSink()
+
+        consumer = VisionConsumer(vision, frame_q, action_q, sink, enabled=False)
+        self.assertFalse(consumer.enabled)
+        self.assertFalse(consumer.preview_enabled)
+
+        # Enviar un fotograma simulado con el bot pausado
+        fake_payload = MagicMock()
+        frame_q.put_latest(fake_payload)
+        frame_q.put_latest(_STOP)
+
+        # Ejecutar el consumidor
+        consumer.run()
+
+        # Al estar pausado y sin preview, NO debe llamar a analyze (0% CPU y sin tocar caché)
+        vision.analyze.assert_not_called()
+        self.assertEqual(action_q.qsize(), 1)  # Solo el _STOP
+
     def test_pipeline_lifecycle_orderly_shutdown(self) -> None:
         clock = SystemClock()
         source = FakeCaptureSource()
@@ -139,8 +166,11 @@ class TestPipelineFlow(unittest.TestCase):
         th = threading.Thread(target=executor.run, daemon=True)
         th.start()
 
-        # Permitir que el bucle de timeout (0.04s) ejecute ticks cooperativamente
-        threading.Event().wait(0.40)
+        # Esperar activamente a que el bucle de timeout de cola vacía despache los clics
+        for _ in range(30):
+            if len(simulator.history) > 0:
+                break
+            threading.Event().wait(0.05)
 
         # Detener executor
         action_q.put(_STOP)
@@ -150,6 +180,39 @@ class TestPipelineFlow(unittest.TestCase):
         self.assertTrue(len(simulator.history) > 0)
         self.assertEqual(simulator.history[0].x, 300)
         self.assertEqual(simulator.history[0].y, 400)
+
+    def test_action_executor_empty_queue_recovers_from_minigame_timeout(self) -> None:
+        """Verifica que ActionExecutor permita recuperar estados atascados mediante latidos en cola vacía."""
+        import threading
+        import time
+        from autorod.domain.models.fishing_state import FishingState, FishingStateMachine
+        from autorod.application.pipeline.queues import _STOP
+
+        simulator = FakeInputSimulator()
+        action_q: queue.Queue[Any] = queue.Queue()
+        fsm = FishingStateMachine(minigame_timeout_s=0.1, card_timeout_s=0.1)
+        task = FindAndClickTask(state_machine=fsm)
+
+        # Forzar estado MINIGAME en el pasado para que esté vencido
+        past = time.monotonic() - 0.5
+        task._fsm.transition_to(FishingState.MINIGAME, past)
+        self.assertEqual(task.current_state, FishingState.MINIGAME)
+
+        executor = ActionExecutor(action_q, task, simulator, enabled=True)
+        th = threading.Thread(target=executor.run, daemon=True)
+        th.start()
+
+        # Esperar activamente a que el bucle de cola vacía despache el latido de recuperación
+        for _ in range(30):
+            if task.current_state == FishingState.SCANNING:
+                break
+            threading.Event().wait(0.05)
+
+        action_q.put(_STOP)
+        th.join(timeout=3.0)
+
+        # El FSM debe haberse recuperado automáticamente a SCANNING gracias al latido
+        self.assertEqual(task.current_state, FishingState.SCANNING)
 
 
 if __name__ == "__main__":

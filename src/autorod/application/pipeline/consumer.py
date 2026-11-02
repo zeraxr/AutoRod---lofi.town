@@ -18,12 +18,31 @@ class VisionConsumer:
             frame_queue: LatestFrameQueue[Any],
             action_queue: queue.Queue[Any],
             diagnostics: IDiagnosticsSink,
+            enabled: bool = True,
     ) -> None:
         self._strategy = strategy
         self._frame_queue = frame_queue
         self._action_queue = action_queue
         self._diagnostics = diagnostics
+        self._enabled = enabled
+        self._preview_enabled = False
         self._last_status = ""
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, val: bool) -> None:
+        self._enabled = bool(val)
+
+    @property
+    def preview_enabled(self) -> bool:
+        return self._preview_enabled
+
+    @preview_enabled.setter
+    def preview_enabled(self, val: bool) -> None:
+        self._preview_enabled = bool(val)
 
     def run(self) -> None:
         while True:
@@ -32,6 +51,13 @@ class VisionConsumer:
                 self._action_queue.put(_STOP)
                 self._frame_queue.task_done()
                 break
+
+            # Si el bot está pausado y no se ha activado la previsualización del visor:
+            # Descartamos el fotograma sin procesar nada para mantener el caché 100% limpio
+            # y consumir 0% de CPU hasta que el usuario decida iniciar el bot.
+            if not self._enabled and not self._preview_enabled:
+                self._frame_queue.task_done()
+                continue
 
             result = self._strategy.analyze(item)
 
@@ -68,7 +94,7 @@ class VisionConsumer:
             )
             self._diagnostics.publish(diag)
 
-            if result.found:
+            if self._enabled and result.found:
                 self._action_queue.put(result)
 
             self._frame_queue.task_done()

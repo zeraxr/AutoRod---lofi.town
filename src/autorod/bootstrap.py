@@ -82,7 +82,10 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     diag_renderer = OpenCVAnnotator(target_size=(640, 480), format="jpeg")
 
     # 5. Caso de Uso Autónomo: Mover ratón al objetivo y cliquear
-    task = FindAndClickTask(click_cooldown_s=0.35)
+    task = FindAndClickTask(
+        click_cooldown_s=0.35,
+        on_cycle_completed=getattr(vision_strategy, "notify_cycle_completed", None)
+    )
 
     # 6. Colas Concurrenciales Hilo-Seguras con Descarte LIFO (Latest-Frame-Wins)
     frame_queue: LatestFrameQueue[Any] = LatestFrameQueue[Any](maxsize=1)
@@ -90,7 +93,7 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
 
     # 7. Pipeline Productor-Consumidor Concurrente
     producer = CaptureProducer(capture_source, frame_queue, clock, target_fps=config.target_fps)
-    consumer = VisionConsumer(vision_strategy, frame_queue, action_queue, diag_sink)
+    consumer = VisionConsumer(vision_strategy, frame_queue, action_queue, diag_sink, enabled=False)
     executor = ActionExecutor(action_queue, task, input_simulator, enabled=False)
 
     supervisor = PipelineSupervisor(producer, consumer, executor)

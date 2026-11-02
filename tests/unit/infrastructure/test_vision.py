@@ -280,6 +280,106 @@ class TestVisionStrategies(unittest.TestCase):
         self.assertIsNone(strategy.cached_scale)
         self.assertIsNone(strategy.cached_dimensions)
 
+    def test_geometric_strategy_detects_high_zoom_buttons(self) -> None:
+        """Verifica que el motor detecte botones en niveles altos de zoom (1.75x y 2.0x)."""
+        strategy = GeometricVisionStrategy(template_repo=self.repo)
+        tpl_cast = payload_to_ndarray(self.repo.load("cast_button"))
+
+        for zoom in (1.75, 2.0):
+            scaled = cv2.resize(tpl_cast, (int(tpl_cast.shape[1] * zoom), int(tpl_cast.shape[0] * zoom)), interpolation=cv2.INTER_LINEAR)
+            th, tw = scaled.shape[:2]
+            screen = np.full((1080, 1920, 3), 45, dtype=np.uint8)
+            screen[300:300+th, 400:400+tw] = scaled
+
+            payload = ImagePayload(
+                width=1920,
+                height=1080,
+                pixel_format=PixelFormat.BGR8,
+                stride=1920 * 3,
+                data=screen.tobytes(),
+                frame_id=30,
+                captured_at_ns=0,
+                source_id=f"zoom_{zoom}"
+            )
+            strategy.clear_scale_cache()
+            res = strategy.analyze(payload)
+            self.assertTrue(res.found, f"Fallo al detectar botón a zoom {zoom}x")
+            self.assertGreaterEqual(res.confidence, 0.85)
+
+    def test_geometric_strategy_auto_recovers_when_zoom_changes_without_manual_cache_purge(self) -> None:
+        """Verifica que si el usuario cambia el zoom en caliente, el motor se auto-recalibre sin requerir purga manual."""
+        strategy = GeometricVisionStrategy(template_repo=self.repo, cache_size_enabled=True)
+        tpl_cast = payload_to_ndarray(self.repo.load("cast_button"))
+        th, tw = tpl_cast.shape[:2]
+
+        # 1. Pantalla a escala normal 1.0x
+        screen1 = np.full((1080, 1920, 3), 45, dtype=np.uint8)
+        screen1[300:300+th, 400:400+tw] = tpl_cast
+        p1 = ImagePayload(width=1920, height=1080, pixel_format=PixelFormat.BGR8,
+                          stride=1920*3, data=screen1.tobytes(), frame_id=31,
+                          captured_at_ns=0, source_id="s1")
+        res1 = strategy.analyze(p1)
+        self.assertTrue(res1.found)
+        self.assertEqual(strategy.cached_scale, 1.0)
+
+        # 2. El usuario cambia el zoom a 1.50x
+        scaled = cv2.resize(tpl_cast, (int(tw * 1.5), int(th * 1.5)), interpolation=cv2.INTER_LINEAR)
+        sth, stw = scaled.shape[:2]
+        screen2 = np.full((1080, 1920, 3), 45, dtype=np.uint8)
+        screen2[300:300+sth, 400:400+stw] = scaled
+        p2 = ImagePayload(width=1920, height=1080, pixel_format=PixelFormat.BGR8,
+                          stride=1920*3, data=screen2.tobytes(), frame_id=32,
+                          captured_at_ns=0, source_id="s2")
+
+        # Sin llamar a clear_scale_cache(), analyze() debe auto-recuperarse y actualizar la escala a 1.5
+        res2 = strategy.analyze(p2)
+        self.assertTrue(res2.found, "El motor no se auto-recuperó al cambiar el zoom")
+        self.assertEqual(strategy.cached_scale, 1.5)
+
+    def test_geometric_strategy_preserves_scale_cache_during_fishing_wait_intervals(self) -> None:
+        """Verifica que el caché de escala no se borre mientras el anzuelo flota en el agua sin botones."""
+        strategy = GeometricVisionStrategy(template_repo=self.repo, cache_size_enabled=True)
+        tpl_cast = payload_to_ndarray(self.repo.load("cast_button"))
+        tpl_reel = payload_to_ndarray(self.repo.load("reel_button"))
+        th, tw = tpl_cast.shape[:2]
+
+        # 1. Detectar CAST! a escala 1.25x
+        scaled_cast = cv2.resize(tpl_cast, (int(tw * 1.25), int(th * 1.25)), interpolation=cv2.INTER_LINEAR)
+        cth, ctw = scaled_cast.shape[:2]
+        screen_cast = np.full((1080, 1920, 3), 45, dtype=np.uint8)
+        screen_cast[300:300+cth, 400:400+ctw] = scaled_cast
+        p_cast = ImagePayload(width=1920, height=1080, pixel_format=PixelFormat.BGR8,
+                              stride=1920*3, data=screen_cast.tobytes(), frame_id=40,
+                              captured_at_ns=0, source_id="cast")
+        res_cast = strategy.analyze(p_cast)
+        self.assertTrue(res_cast.found)
+        self.assertEqual(strategy.cached_scale, 1.25)
+
+        # 2. Simular fotogramas de espera mientras el pez pica (sin botón alguno en pantalla)
+        blank_screen = np.full((1080, 1920, 3), 45, dtype=np.uint8)
+        p_blank = ImagePayload(width=1920, height=1080, pixel_format=PixelFormat.BGR8,
+                               stride=1920*3, data=blank_screen.tobytes(), frame_id=41,
+                               captured_at_ns=0, source_id="waiting_bite")
+        for i in range(5):
+            res_blank = strategy.analyze(p_blank)
+            self.assertFalse(res_blank.found)
+
+        # El caché de escala DEBE permanecer intacto en 1.25 (NO borrarse durante la espera)
+        self.assertEqual(strategy.cached_scale, 1.25)
+
+        # 3. El pez pica y aparece REEL! a la misma escala: debe detectarse de inmediato usando el caché
+        scaled_reel = cv2.resize(tpl_reel, (int(tw * 1.25), int(th * 1.25)), interpolation=cv2.INTER_LINEAR)
+        rth, rtw = scaled_reel.shape[:2]
+        screen_reel = np.full((1080, 1920, 3), 45, dtype=np.uint8)
+        screen_reel[300:300+rth, 400:400+rtw] = scaled_reel
+        p_reel = ImagePayload(width=1920, height=1080, pixel_format=PixelFormat.BGR8,
+                              stride=1920*3, data=screen_reel.tobytes(), frame_id=42,
+                              captured_at_ns=0, source_id="reel")
+        res_reel = strategy.analyze(p_reel)
+        self.assertTrue(res_reel.found)
+        self.assertEqual(res_reel.strategy_id, "reel_button_detected")
+        self.assertEqual(strategy.cached_scale, 1.25)
+
     def test_hsv_contour_strategy_detects_target(self) -> None:
         strategy = HsvContourStrategy(
             lower_hsv=(35, 60, 60),
@@ -301,6 +401,57 @@ class TestVisionStrategies(unittest.TestCase):
         res = strategy.analyze(frame_match)
         self.assertTrue(res.found)
         self.assertGreaterEqual(res.confidence, 0.7)
+
+    def test_button_type_discrimination_between_cast_and_reel(self) -> None:
+        """Verifica que el motor distinga con certeza matemática absoluta entre 'CAST!' y 'REEL!'."""
+        strategy = GeometricVisionStrategy()
+        tpl_cast = payload_to_ndarray(strategy._repo.load("cast_button"))
+        tpl_reel = payload_to_ndarray(strategy._repo.load("reel_button"))
+        ch, cw = tpl_cast.shape[:2]
+
+        # 1. Probar lienzo con botón CAST!
+        canvas_cast = np.full((720, 1280, 3), 40, dtype=np.uint8)
+        canvas_cast[200:200+ch, 500:500+cw] = tpl_cast
+        p_cast = ImagePayload(width=1280, height=720, pixel_format=PixelFormat.BGR8,
+                              stride=1280*3, data=canvas_cast.tobytes(), frame_id=1,
+                              captured_at_ns=0, source_id="test_cast")
+        res_cast = strategy.analyze(p_cast)
+        self.assertTrue(res_cast.found)
+        self.assertEqual(res_cast.strategy_id, "cast_button_detected")
+        self.assertGreaterEqual(res_cast.confidence, 0.95)
+
+        # 2. Probar lienzo con botón REEL!
+        canvas_reel = np.full((720, 1280, 3), 40, dtype=np.uint8)
+        canvas_reel[200:200+ch, 500:500+cw] = tpl_reel
+        p_reel = ImagePayload(width=1280, height=720, pixel_format=PixelFormat.BGR8,
+                              stride=1280*3, data=canvas_reel.tobytes(), frame_id=2,
+                              captured_at_ns=0, source_id="test_reel")
+        res_reel = strategy.analyze(p_reel)
+        self.assertTrue(res_reel.found)
+        self.assertEqual(res_reel.strategy_id, "reel_button_detected")
+        self.assertGreaterEqual(res_reel.confidence, 0.95)
+
+    def test_five_cycle_calibration_and_afk_consolidation(self) -> None:
+        """Verifica la fase de 5 ciclos de calibración dinámica y el paso a Modo AFK Consolidado."""
+        strategy = GeometricVisionStrategy()
+        self.assertEqual(strategy.completed_cycles, 0)
+        self.assertFalse(strategy.is_afk_consolidated)
+
+        # Simular 4 ciclos completados: sigue en calibración dinámica
+        for i in range(4):
+            strategy.notify_cycle_completed()
+            self.assertEqual(strategy.completed_cycles, i + 1)
+            self.assertFalse(strategy.is_afk_consolidated)
+
+        # 5to ciclo completado: entra a Modo AFK Consolidado
+        strategy.notify_cycle_completed()
+        self.assertEqual(strategy.completed_cycles, 5)
+        self.assertTrue(strategy.is_afk_consolidated)
+
+        # Purgar el caché restablece el contador de calibración a 0
+        strategy.clear_scale_cache()
+        self.assertEqual(strategy.completed_cycles, 0)
+        self.assertFalse(strategy.is_afk_consolidated)
 
 
 if __name__ == "__main__":

@@ -167,7 +167,7 @@ class FletWindowFX:
     def configure_window(page: ft.Page, title: str = "AutoRod", opacity: float = 1.0) -> None:
         """Configura las dimensiones, modo oscuro, opacidad sólida e iconos de la ventana Flet."""
         page.title = title
-        page.bgcolor = "#070709"
+        page.bgcolor = "#1a1b26"
         page.theme_mode = ft.ThemeMode.DARK
         page.padding = 0
         page.spacing = 0
@@ -180,7 +180,7 @@ class FletWindowFX:
             page.window.min_width = 860
             page.window.min_height = 600
             page.window.always_on_top = True
-            page.window.bgcolor = "#070709"
+            page.window.bgcolor = "#1a1b26"
             page.window.opacity = max(0.40, min(1.0, opacity))
             page.window.title_bar_hidden = True
 

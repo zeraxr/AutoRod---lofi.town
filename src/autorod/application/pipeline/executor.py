@@ -61,9 +61,9 @@ class ActionExecutor:
                     item = self._queue.get(timeout=0.04)
                 except queue.Empty:
                     # Si no hay nuevos resultados encolados por visión (por ejemplo porque la tarjeta
-                    # está en plena transición o no es blanca pura), pero la tarea está en CARD_DISMISS:
-                    # Despachamos un tick temporal para que continúe la ráfaga de clics sin bloquearse.
-                    if self._enabled and getattr(self._task, "current_state", None) == FishingState.CARD_DISMISS:
+                    # está en plena transición o el pez escapó/canceló en MINIGAME):
+                    # Despachamos un latido temporal cooperativo para evaluar timeouts y continuar ráfagas.
+                    if self._enabled:
                         commands = self._task.evaluate(
                             MatchResult(found=False, confidence=0.0, strategy_id="card_dismiss_tick")
                         )
