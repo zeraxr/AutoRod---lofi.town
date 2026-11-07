@@ -29,6 +29,14 @@ class MssCaptureSource(ICaptureSource):
     def monitor_index(self) -> int:
         return self._monitor_index
 
+    @property
+    def custom_region(self) -> dict[str, int] | None:
+        return self._custom_region
+
+    def set_region(self, region: dict[str, int] | None) -> None:
+        """Actualiza la región de captura dinámica (ROI)."""
+        self._custom_region = region
+
     def set_monitor(self, monitor_index: int) -> None:
         """Cambia el monitor físico capturado dinámicamente."""
         if self._sct is not None and monitor_index >= len(self._sct.monitors):

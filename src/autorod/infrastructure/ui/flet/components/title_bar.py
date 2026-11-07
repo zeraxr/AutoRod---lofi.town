@@ -53,33 +53,31 @@ class FletCustomTitleBar(ft.Container):
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
 
-        # 2. Botón de Actualización (Sin emojis, glifo vectorial)
-        self._update_btn_text = ft.Text(
-            "Actualización disponible",
-            size=11,
-            weight=ft.FontWeight.BOLD,
-            color="#ffffff"
+        # 2. Icono de Actualización SOTA con punto azul (Figma 1:1)
+        self._update_dot = ft.Container(
+            width=6,
+            height=6,
+            border_radius=3,
+            bgcolor="#38bdf8",
+            right=6,
+            top=6,
+            visible=True
         )
-        self._update_button = ft.Container(
-            content=ft.Row(
-                controls=[
-                    ft.Icon(ft.Icons.SYSTEM_UPDATE_ALT_ROUNDED, size=13, color="#ffffff"),
-                    self._update_btn_text
-                ],
-                spacing=6,
-                alignment=ft.MainAxisAlignment.CENTER
-            ),
-            gradient=ft.LinearGradient(
-                colors=["#10b981", "#059669"],
-                begin=ft.Alignment(-1, 0),
-                end=ft.Alignment(1, 0)
-            ),
-            border_radius=6,
-            padding=ft.Padding.symmetric(horizontal=10, vertical=4),
-            tooltip="¡Hay una nueva versión disponible! Haz clic para ver detalles",
+        self._update_sync_btn = ft.IconButton(
+            icon=ft.Icons.SYNC_ROUNDED,
+            icon_size=16,
+            icon_color="#8f99b3",
+            tooltip="Comprobar actualizaciones",
             on_click=self._show_update_dialog,
-            animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
-            visible=False  # Se activa automáticamente al detectar actualización
+            style=ft.ButtonStyle(padding=ft.Padding.all(4))
+        )
+        self._update_button = ft.Stack(
+            controls=[
+                self._update_sync_btn,
+                self._update_dot
+            ],
+            width=28,
+            height=28
         )
 
         # 3. Botones de Control de Ventana (Estilo moderno Discord / VS Code)
@@ -112,7 +110,7 @@ class FletCustomTitleBar(ft.Container):
                     spacing=0
                 )
             ],
-            spacing=10,
+            spacing=8,
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
 
@@ -206,10 +204,10 @@ class FletCustomTitleBar(ft.Container):
             p.update()
 
     def set_update_available(self, info: UpdateInfo) -> None:
-        """Activa y hace visible el botón de actualización en la barra de título."""
+        """Activa y hace visible el punto azul de actualización en el icono de sincronización."""
         self._current_update_info = info
-        self._update_btn_text.value = f"Actualizar ({info.latest_version})"
-        self._update_button.visible = True
+        self._update_dot.visible = True
+        self._update_dot.bgcolor = "#38bdf8"
         try:
             self._update_button.update()
         except Exception:

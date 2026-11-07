@@ -15,6 +15,7 @@ import sys
 import time
 import logging
 import threading
+import asyncio
 import ctypes
 import queue
 from typing import Any
@@ -39,7 +40,6 @@ from autorod.infrastructure.ui.flet.components.skeleton_view import FletDashboar
 from autorod.infrastructure.ui.flet.components.theme_studio_view import FletThemeStudioView
 from autorod.infrastructure.ui.flet.components.settings_view import FletSettingsView
 from autorod.infrastructure.ui.flet.components.telemetry_view import FletTelemetryView
-from autorod.infrastructure.ui.flet.components.parameters_view import FletParametersView
 from autorod.infrastructure.ui.flet.components.help_view import FletHelpView
 from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleBar
 from autorod.infrastructure.updater.github_checker import run_async_update_check
@@ -117,7 +117,6 @@ class FletMainApp:
         self.settings_view: FletSettingsView | None = None
         self.theme_studio: FletThemeStudioView | None = None
         self.telemetry_view: FletTelemetryView | None = None
-        self.parameters_view: FletParametersView | None = None
         self.help_view: FletHelpView | None = None
         self._action_btn: Any = None
         self._preview_btn: Any = None
@@ -160,6 +159,7 @@ class FletMainApp:
             theme_manager=self.theme_mgr,
             on_clear_cache=self.recalibrate_view,
             on_toggle_bot=self.toggle_bot_action,
+            on_toggle_preview=self.toggle_diagnostics_feed,
             config=self.config_data
         )
         self.settings_view = FletSettingsView(
@@ -175,15 +175,9 @@ class FletMainApp:
             on_preferences_changed=self._on_preferences_changed
         )
         self.telemetry_view = FletTelemetryView(theme_manager=self.theme_mgr)
-        self.parameters_view = FletParametersView(
-            config=self.config_data,
-            config_path=self.config_path,
-            on_save_callback=self._on_settings_saved,
-            theme_manager=self.theme_mgr
-        )
         self.help_view = FletHelpView(theme_manager=self.theme_mgr)
 
-        # 2. Sidebar Colapsable con Navegación Líquida (6 pestañas de Figma)
+        # 2. Sidebar Colapsable con Navegación Líquida (5 pestañas oficiales)
         self.sidebar = FletCollapsibleGooeySidebar(
             on_tab_selected=self._switch_view,
             theme_manager=self.theme_mgr,
@@ -195,7 +189,6 @@ class FletMainApp:
             "settings": self.settings_view,
             "palette": self.theme_studio,
             "telemetry": self.telemetry_view,
-            "parameters": self.parameters_view,
             "help": self.help_view
         }
 
@@ -286,14 +279,7 @@ class FletMainApp:
                 ft.Row(
                     controls=[
                         self.sidebar,
-                        ft.Column(
-                            controls=[
-                                self._topbar,
-                                self._content_area
-                            ],
-                            spacing=0,
-                            expand=True
-                        )
+                        self._content_area
                     ],
                     spacing=0,
                     expand=True
@@ -320,7 +306,7 @@ class FletMainApp:
             self._update_breadcrumb_text()
             if self.page:
                 self._view_switcher.update()
-                self._breadcrumb_text.update()
+                safe_update(self._breadcrumb_text)
 
     def _update_breadcrumb_text(self) -> None:
         titles = {
@@ -328,7 +314,6 @@ class FletMainApp:
             "settings": "Configuración",
             "palette": "Personalización",
             "telemetry": "Telemetría",
-            "parameters": "Parámetros",
             "help": "Ayuda"
         }
         self._breadcrumb_text.value = titles.get(self._current_tab, "Inicio")
@@ -353,8 +338,6 @@ class FletMainApp:
             self.theme_studio.apply_theme(tokens)
         if hasattr(self, "telemetry_view") and self.telemetry_view:
             self.telemetry_view.apply_theme(tokens)
-        if hasattr(self, "parameters_view") and self.parameters_view:
-            self.parameters_view.apply_theme(tokens)
         if hasattr(self, "help_view") and self.help_view:
             self.help_view.apply_theme(tokens)
         if self.page:
@@ -384,14 +367,6 @@ class FletMainApp:
                 use_local_time=local_t,
                 enable_transition_animations=anim_t,
                 language=self.config_data.language,
-                profile=self.config_data.profile,
-                min_confidence=self.config_data.min_confidence,
-                color_tolerance=self.config_data.color_tolerance,
-                search_area=self.config_data.search_area,
-                cast_delay_ms=self.config_data.cast_delay_ms,
-                max_wait_bite_sec=self.config_data.max_wait_bite_sec,
-                retry_on_lost=self.config_data.retry_on_lost,
-                pause_on_consecutive_errors=self.config_data.pause_on_consecutive_errors,
                 input_backend=self.config_data.input_backend,
                 vision_strategy=self.config_data.vision_strategy,
                 button_threshold=self.config_data.button_threshold,
@@ -429,9 +404,25 @@ class FletMainApp:
         if self.capture_source and hasattr(self.capture_source, "set_monitor"):
             self.capture_source.set_monitor(updated.monitor_index)
 
-        if self.vision_strategy and hasattr(self.vision_strategy, "button_threshold"):
-            self.vision_strategy.button_threshold = updated.button_threshold
-            self.vision_strategy.cache_size_enabled = updated.cache_button_size
+        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "producer"):
+            if hasattr(self.runner.supervisor.producer, "target_fps"):
+                self.runner.supervisor.producer.target_fps = updated.target_fps
+
+        if self.vision_strategy:
+            # Garantía de fábrica: umbral de coincidencia fijo en 0.63 y caché activo
+            if hasattr(self.vision_strategy, "button_threshold"):
+                self.vision_strategy.button_threshold = 0.63
+            if hasattr(self.vision_strategy, "cache_size_enabled"):
+                self.vision_strategy.cache_size_enabled = True
+
+        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "executor"):
+            task = getattr(self.runner.supervisor.executor, "_task", None)
+            if task:
+                # Cadencia óptima de pesca probada (0.35s = 350 ms)
+                if hasattr(task, "cooldown_s"):
+                    task.cooldown_s = 0.35
+                elif hasattr(task, "_cooldown_s"):
+                    task._cooldown_s = 0.35
 
         if self.viewport:
             self.viewport.card_monitor.update_val(f"Monitor {updated.monitor_index}")
@@ -454,10 +445,10 @@ class FletMainApp:
                 logger.error("[CONFIG] No se pudo actualizar el simulador en caliente: %s", exc)
 
     def _start_diagnostics_stream(self) -> None:
-        def _worker() -> None:
+        async def _diagnostics_stream_task() -> None:
             while not self._stop_event.is_set():
                 if not self._diagnostics_active or self._current_tab != "dashboard":
-                    self._stop_event.wait(0.1)
+                    await asyncio.sleep(0.1)
                     continue
 
                 latest = None
@@ -471,66 +462,111 @@ class FletMainApp:
                     try:
                         img_bytes = self.renderer.render(latest)
                         self.viewport.update_image(img_bytes)
-                        if self.page:
-                            safe_page_update(self.page)
                     except Exception:
                         pass
 
-                self._stop_event.wait(0.033)
+                await asyncio.sleep(0.033)
 
-        t = threading.Thread(target=_worker, daemon=True, name="FletDiagnosticsStream")
-        t.start()
+        if self.page and hasattr(self.page, "run_task"):
+            self.page.run_task(_diagnostics_stream_task)
+        else:
+            def _worker() -> None:
+                while not self._stop_event.is_set():
+                    if not self._diagnostics_active or self._current_tab != "dashboard":
+                        self._stop_event.wait(0.1)
+                        continue
+
+                    latest = None
+                    while True:
+                        try:
+                            latest = self.sink.q.get_nowait()
+                        except queue.Empty:
+                            break
+
+                    if latest and self.viewport:
+                        try:
+                            img_bytes = self.renderer.render(latest)
+                            self.viewport.update_image(img_bytes)
+                        except Exception:
+                            pass
+
+                    self._stop_event.wait(0.033)
+
+            t = threading.Thread(target=_worker, daemon=True, name="FletDiagnosticsStream")
+            t.start()
 
     def _start_telemetry_loop(self) -> None:
-        def _worker() -> None:
+        async def _telemetry_task() -> None:
             while not self._stop_event.is_set():
                 try:
-                    if self.viewport and is_control_mounted(self.viewport):
-                        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "executor"):
-                            task = getattr(self.runner.supervisor.executor, "_task", None)
-                            if task and hasattr(task, "current_state"):
-                                st = task.current_state.value
-                                if not self._bot_running:
-                                    self.viewport.card_motor.update_val("PAUSADO [Shift+Q]", color="#f59e0b", sub="En espera para iniciar")
-                                elif st == "SCANNING":
-                                    self.viewport.card_motor.update_val("ESCANEANDO", color=self.theme_mgr.current.primary, sub="Buscando CAST! / REEL!")
-                                elif st == "MINIGAME":
-                                    self.viewport.card_motor.update_val("MINIJUEGO", color="#38bdf8", sub="Sincronizando aguja...")
-                                elif st == "CARD_DISMISS":
-                                    self.viewport.card_motor.update_val("TARJETA PEZ", color=self.theme_mgr.current.primary, sub="Saltando animación...")
-
-                        if self.vision_strategy and hasattr(self.vision_strategy, "cached_dimensions"):
-                            dims = self.vision_strategy.cached_dimensions
-                            cache_on = getattr(self.vision_strategy, "cache_size_enabled", True)
-
-                            if not cache_on:
-                                self.viewport.card_cache.update_val("Modo Dinámico", color="#f59e0b", sub="Escaneo en cada frame")
-                            elif dims is not None:
-                                self.viewport.card_cache.update_val(
-                                    f"{dims[0]}x{dims[1]} px",
-                                    color=self.theme_mgr.current.primary,
-                                    sub="Caché Bloqueado (Bajo CPU)"
-                                )
-                            else:
-                                self.viewport.card_cache.update_val("Buscando...", color="#8b8d98", sub="Esperando objetivo")
-
-                        if hasattr(self.viewport, "refresh_greeting"):
-                            self.viewport.refresh_greeting()
-
-                        # Forzar refresco del árbol de Flutter incluso cuando la ventana no tiene el foco
-                        if self.page:
-                            safe_page_update(self.page)
+                    self._update_telemetry_metrics()
                 except Exception:
                     pass
+                await asyncio.sleep(0.25)
 
-                self._stop_event.wait(0.25)
+        if self.page and hasattr(self.page, "run_task"):
+            self.page.run_task(_telemetry_task)
+        else:
+            def _worker() -> None:
+                while not self._stop_event.is_set():
+                    try:
+                        self._update_telemetry_metrics()
+                    except Exception:
+                        pass
+                    self._stop_event.wait(0.25)
 
-        t = threading.Thread(target=_worker, daemon=True, name="FletTelemetryTick")
-        t.start()
+            t = threading.Thread(target=_worker, daemon=True, name="FletTelemetryTick")
+            t.start()
+
+    def _update_telemetry_metrics(self) -> None:
+        if not self.viewport or not is_control_mounted(self.viewport):
+            return
+
+        if hasattr(self.runner, "supervisor") and hasattr(self.runner.supervisor, "executor"):
+            task = getattr(self.runner.supervisor.executor, "_task", None)
+            if task and hasattr(task, "current_state"):
+                st = task.current_state.value
+                if not self._bot_running:
+                    self.viewport.card_motor.update_val("PAUSADO [Shift+Q]", color="#f59e0b", sub="En espera para iniciar")
+                elif st == "SCANNING":
+                    self.viewport.card_motor.update_val("ESCANEANDO", color=self.theme_mgr.current.primary, sub="Buscando CAST! / REEL!")
+                elif st == "MINIGAME":
+                    self.viewport.card_motor.update_val("MINIJUEGO", color="#38bdf8", sub="Sincronizando aguja...")
+                elif st == "CARD_DISMISS":
+                    self.viewport.card_motor.update_val("TARJETA PEZ", color=self.theme_mgr.current.primary, sub="Saltando animación...")
+
+        if self.vision_strategy and hasattr(self.vision_strategy, "cached_dimensions"):
+            dims = self.vision_strategy.cached_dimensions
+            cache_on = getattr(self.vision_strategy, "cache_size_enabled", True)
+            is_locked = getattr(self.vision_strategy, "is_cache_locked", False)
+            cycles = getattr(self.vision_strategy, "successful_cycles", 0)
+            req_cycles = getattr(self.vision_strategy, "required_cycles_to_lock", 5)
+
+            if not cache_on:
+                self.viewport.card_cache.update_val("Modo Dinámico", color="#f59e0b", sub="Escaneo en cada frame")
+            elif is_locked and dims is not None:
+                self.viewport.card_cache.update_val(
+                    f"{dims[0]}x{dims[1]} px",
+                    color=self.theme_mgr.current.primary,
+                    sub=f"Caché Bloqueado ({cycles} ciclos)"
+                )
+            elif dims is not None:
+                self.viewport.card_cache.update_val(
+                    f"{dims[0]}x{dims[1]} px",
+                    color="#38bdf8",
+                    sub=f"Calibrando HUD ({cycles}/{req_cycles} ciclos)"
+                )
+            else:
+                self.viewport.card_cache.update_val("Buscando...", color="#8b8d98", sub="Esperando objetivo")
+
+        if hasattr(self.viewport, "refresh_greeting"):
+            self.viewport.refresh_greeting()
 
     def _start_global_emergency_listener(self) -> None:
         def _watcher() -> None:
             q_was_down = False
+            f8_was_down = False
+            f9_was_down = False
             while not self._stop_event.is_set():
                 try:
                     q_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x51) & 0x8000)
@@ -543,7 +579,10 @@ class FletMainApp:
                         (ctypes.windll.user32.GetAsyncKeyState(0xA4) & 0x8000) or  # VK_LMENU (Left Alt)
                         (ctypes.windll.user32.GetAsyncKeyState(0x12) & 0x8000)     # VK_MENU (Alt)
                     )
+                    f8_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x77) & 0x8000)
+                    f9_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x78) & 0x8000)
 
+                    # Atajo global Q (Shift+Q para pausa, Left Alt+Q para apagado)
                     if q_pressed and not q_was_down:
                         q_was_down = True
                         if shift_pressed:
@@ -555,6 +594,24 @@ class FletMainApp:
                             break
                     elif not q_pressed:
                         q_was_down = False
+
+                    # Atajo global F8 (Iniciar / pausar sesión según Figma 72:4524)
+                    if f8_pressed and not f8_was_down:
+                        f8_was_down = True
+                        logger.info("[HOTKEY] Iniciar / pausar sesión accionado vía hotkey global 'F8'.")
+                        self.toggle_bot_action()
+                    elif not f8_pressed:
+                        f8_was_down = False
+
+                    # Atajo global F9 (Detener sesión activa según Figma 72:4524)
+                    if f9_pressed and not f9_was_down:
+                        f9_was_down = True
+                        logger.info("[HOTKEY] Detener sesión activa accionado vía hotkey global 'F9'.")
+                        if self._bot_running:
+                            self.toggle_bot_action()
+                    elif not f9_pressed:
+                        f9_was_down = False
+
                 except Exception:
                     pass
                 self._stop_event.wait(0.035)
@@ -592,8 +649,7 @@ class FletMainApp:
                     "2": "settings",
                     "3": "palette",
                     "4": "telemetry",
-                    "5": "parameters",
-                    "6": "help"
+                    "5": "help"
                 }
                 target_tab = tab_map.get(key)
                 if target_tab and hasattr(self, "sidebar") and self.sidebar:
@@ -618,20 +674,25 @@ class FletMainApp:
             if self.viewport:
                 self.viewport.card_cache.update_val("Recalibrando...", color="#38bdf8", sub="Re-escaneando escalas")
 
+        if self.viewport:
+            if self._bot_running:
+                self.viewport.card_motor.update_val("BOT ACTIVO", color=self.theme_mgr.current.primary, sub="Inyección activada")
+            else:
+                self.viewport.card_motor.update_val("PAUSADO [Shift+Q / F8]", color="#f59e0b", sub="En espera para iniciar")
+            self.viewport.set_bot_running(self._bot_running)
+
+        for v in (self.telemetry_view, self.settings_view):
+            if v and hasattr(v, "set_bot_running"):
+                v.set_bot_running(self._bot_running)
+
         if self._action_btn:
             if self._bot_running:
                 self._action_btn.set_text("PAUSAR BOT", icon=ft.Icons.PAUSE_ROUNDED)
-                if self.viewport:
-                    self.viewport.card_motor.update_val("BOT ACTIVO", color=self.theme_mgr.current.primary, sub="Inyección activada")
-                    self.viewport.set_bot_running(True)
             else:
                 self._action_btn.set_text("INICIAR BOT", icon=ft.Icons.PLAY_ARROW_ROUNDED)
-                if self.viewport:
-                    self.viewport.card_motor.update_val("PAUSADO [Shift+Q]", color="#f59e0b", sub="En espera para iniciar")
-                    self.viewport.set_bot_running(False)
 
         if self.telemetry_view:
-            state_msg = "Acciones del bot INICIADAS [Shift+Q]." if self._bot_running else "Acciones del bot PAUSADAS [Shift+Q]."
+            state_msg = "Acciones del bot INICIADAS [Shift+Q / F8]." if self._bot_running else "Acciones del bot PAUSADAS [Shift+Q / F8]."
             self.telemetry_view.append_log(state_msg)
 
         if self.page:

@@ -13,6 +13,11 @@ class AppConfig:
     target_fps: int = 60
     monitor_index: int = 1
     capture_source: str = "mss"                    # 'mss', 'fake'
+    scan_region_enabled: bool = True               # Habilitar zona de escaneo recortada
+    scan_x1: int = 670
+    scan_y1: int = 246
+    scan_x2: int = 1244
+    scan_y2: int = 700
 
     # 2. Comportamiento y Accesos Globales (Figma Configuración)
     pause_on_defocus: bool = True                  # Pausar al cambiar de ventana
@@ -29,24 +34,28 @@ class AppConfig:
     enable_transition_animations: bool = True      # Animaciones de transición fluidas
     language: str = "es"                           # 'es', 'en'
 
-    # 4. Parámetros de Detección y Ritmo (Figma Parámetros)
-    profile: str = "balanced"                      # 'balanced', 'fast', 'high_precision'
-    min_confidence: float = 0.85                   # Confianza mínima (85%)
-    color_tolerance: float = 0.20                  # Tolerancia de color (20%)
-    search_area: str = "fullscreen"                # 'fullscreen', 'center_50', 'active_area'
-    cast_delay_ms: int = 1500                      # Espera entre lanzamientos (1.500 ms)
-    max_wait_bite_sec: int = 30                    # Tiempo máximo sin picada (30 s)
-    retry_on_lost: bool = True                     # Reintentar si se pierde el objetivo
-    pause_on_consecutive_errors: int = 3           # Pausar tras N errores consecutivos
-
-    # 5. Parámetros de Dominio / Motor Legacy (Deprecados de la UI pero preservados para el motor)
+    # 4. Parámetros de Dominio / Motor (Invariantes internas calibradas)
     input_backend: str = "sendinput"              # 'interception', 'sendinput', 'postmessage', 'fake'
     vision_strategy: str = "geometric_vision_sota" # 'geometric_vision_sota', 'hsv_contour', 'sota_template_match', 'fake'
     button_threshold: float = 0.63
     cache_button_size: bool = True
+    required_cycles_to_lock: int = 5              # Ciclos exitosos necesarios para fijar el caché
+    cache_inactivity_timeout_s: float = 90.0      # Ventana de inactividad máxima en caché bloqueado
     humanized_input: bool = False
     ui_theme: str = "default"                      # Retrocompatibilidad con presets antiguos
-    ui_transparency: float = 1.0                   # Deprecado en UI: 1.0 = 100% opaco
+    ui_transparency: float = 1.0                   # 1.0 = 100% opaco
+
+    def get_scan_region(self) -> dict[str, int] | None:
+        """Calcula el diccionario de región para MSS si scan_region_enabled es True."""
+        if not self.scan_region_enabled:
+            return None
+        left = min(self.scan_x1, self.scan_x2)
+        top = min(self.scan_y1, self.scan_y2)
+        width = abs(self.scan_x2 - self.scan_x1)
+        height = abs(self.scan_y2 - self.scan_y1)
+        if width <= 0 or height <= 0:
+            return None
+        return {"top": top, "left": left, "width": width, "height": height}
 
 
 def resolve_config_path(path: str = "config.toml") -> Path:
@@ -75,6 +84,11 @@ def load_config(path: str = "config.toml") -> AppConfig:
         target_fps=int(app_data.get("target_fps", 60)),
         monitor_index=int(app_data.get("monitor_index", 1)),
         capture_source=str(app_data.get("capture_source", "mss")),
+        scan_region_enabled=bool(app_data.get("scan_region_enabled", True)),
+        scan_x1=int(app_data.get("scan_x1", 670)),
+        scan_y1=int(app_data.get("scan_y1", 246)),
+        scan_x2=int(app_data.get("scan_x2", 1244)),
+        scan_y2=int(app_data.get("scan_y2", 700)),
 
         pause_on_defocus=bool(app_data.get("pause_on_defocus", True)),
         minimize_to_tray=bool(app_data.get("minimize_to_tray", True)),
@@ -89,19 +103,12 @@ def load_config(path: str = "config.toml") -> AppConfig:
         enable_transition_animations=bool(app_data.get("enable_transition_animations", True)),
         language=str(app_data.get("language", "es")),
 
-        profile=str(app_data.get("profile", "balanced")),
-        min_confidence=float(app_data.get("min_confidence", 0.85)),
-        color_tolerance=float(app_data.get("color_tolerance", 0.20)),
-        search_area=str(app_data.get("search_area", "fullscreen")),
-        cast_delay_ms=int(app_data.get("cast_delay_ms", 1500)),
-        max_wait_bite_sec=int(app_data.get("max_wait_bite_sec", 30)),
-        retry_on_lost=bool(app_data.get("retry_on_lost", True)),
-        pause_on_consecutive_errors=int(app_data.get("pause_on_consecutive_errors", 3)),
-
         input_backend=str(app_data.get("input_backend", "sendinput")),
         vision_strategy=str(app_data.get("vision_strategy", "geometric_vision_sota")),
         button_threshold=float(app_data.get("button_threshold", 0.63)),
         cache_button_size=bool(app_data.get("cache_button_size", True)),
+        required_cycles_to_lock=int(app_data.get("required_cycles_to_lock", 5)),
+        cache_inactivity_timeout_s=float(app_data.get("cache_inactivity_timeout_s", 90.0)),
         humanized_input=bool(app_data.get("humanized_input", False)),
         ui_theme=str(app_data.get("ui_theme", "default")),
         ui_transparency=float(app_data.get("ui_transparency", 1.0)),
@@ -116,6 +123,11 @@ def save_config(config: AppConfig, path: str = "config.toml") -> None:
 target_fps = {config.target_fps}
 monitor_index = {config.monitor_index}
 capture_source = "{config.capture_source}"
+scan_region_enabled = {str(config.scan_region_enabled).lower()}
+scan_x1 = {config.scan_x1}
+scan_y1 = {config.scan_y1}
+scan_x2 = {config.scan_x2}
+scan_y2 = {config.scan_y2}
 
 # Comportamiento
 pause_on_defocus = {str(config.pause_on_defocus).lower()}
@@ -132,21 +144,13 @@ use_local_time = {str(config.use_local_time).lower()}
 enable_transition_animations = {str(config.enable_transition_animations).lower()}
 language = "{config.language}"
 
-# Parámetros de Detección y Ritmo
-profile = "{config.profile}"
-min_confidence = {config.min_confidence:.2f}
-color_tolerance = {config.color_tolerance:.2f}
-search_area = "{config.search_area}"
-cast_delay_ms = {config.cast_delay_ms}
-max_wait_bite_sec = {config.max_wait_bite_sec}
-retry_on_lost = {str(config.retry_on_lost).lower()}
-pause_on_consecutive_errors = {config.pause_on_consecutive_errors}
-
 # Parámetros Internos del Motor
 input_backend = "{config.input_backend}"
 vision_strategy = "{config.vision_strategy}"
 button_threshold = {config.button_threshold:.2f}
 cache_button_size = {str(config.cache_button_size).lower()}
+required_cycles_to_lock = {config.required_cycles_to_lock}
+cache_inactivity_timeout_s = {config.cache_inactivity_timeout_s:.1f}
 humanized_input = {str(config.humanized_input).lower()}
 ui_theme = "{config.ui_theme}"
 ui_transparency = {config.ui_transparency:.2f}

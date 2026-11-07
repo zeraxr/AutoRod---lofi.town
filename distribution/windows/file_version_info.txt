@@ -4,8 +4,8 @@
 # Proporciona identidad formal para Microsoft Windows y motores antivirus.
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 0, 0, 0),
-    prodvers=(2, 0, 0, 0),
+    filevers=(2, 1, 0, 0),
+    prodvers=(2, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -21,12 +21,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'AutoRod Open Source Project'),
             StringStruct('FileDescription', 'AutoRod - Visual Automation Assistant'),
-            StringStruct('FileVersion', '2.0.0.0'),
+            StringStruct('FileVersion', '2.1.0.0'),
             StringStruct('InternalName', 'AutoRod'),
             StringStruct('LegalCopyright', 'Copyright (c) 2026 AutoRod Contributors. All rights reserved.'),
             StringStruct('OriginalFilename', 'AutoRod.exe'),
             StringStruct('ProductName', 'AutoRod'),
-            StringStruct('ProductVersion', '2.0.0.0'),
+            StringStruct('ProductVersion', '2.1.0.0'),
             StringStruct('Comments', 'SOTA Visual Automation Tool for lofi.town')
           ]
         ),
@@ -35,12 +35,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'AutoRod Open Source Project'),
             StringStruct('FileDescription', 'AutoRod - Asistente de Automatización Visual'),
-            StringStruct('FileVersion', '2.0.0.0'),
+            StringStruct('FileVersion', '2.1.0.0'),
             StringStruct('InternalName', 'AutoRod'),
             StringStruct('LegalCopyright', 'Copyright (c) 2026 AutoRod Contributors. Todos los derechos reservados.'),
             StringStruct('OriginalFilename', 'AutoRod.exe'),
             StringStruct('ProductName', 'AutoRod'),
-            StringStruct('ProductVersion', '2.0.0.0'),
+            StringStruct('ProductVersion', '2.1.0.0'),
             StringStruct('Comments', 'Herramienta SOTA de Automatización Visual para lofi.town')
           ]
         )

@@ -20,7 +20,6 @@ from autorod.infrastructure.ui.flet.components.viewport_view import FletDiagnost
 from autorod.infrastructure.ui.flet.components.skeleton_view import FletDashboardSkeleton
 from autorod.infrastructure.ui.flet.components.title_bar import FletCustomTitleBar
 from autorod.infrastructure.ui.flet.components.settings_view import FletSettingsView
-from autorod.infrastructure.ui.flet.components.parameters_view import FletParametersView
 from autorod.infrastructure.ui.flet.components.help_view import FletHelpView
 from autorod.infrastructure.updater.github_checker import UpdateInfo
 from autorod.infrastructure.ui.flet.utils import (
@@ -89,8 +88,8 @@ class TestFletUIArchitecture(unittest.TestCase):
         self.assertGreaterEqual(btn.width, 120)
         self.assertEqual(btn.height, 36)
 
-    def test_collapsible_sidebar_all_six_tabs(self) -> None:
-        """Verifica que la barra lateral tenga las 6 pestañas oficiales de Figma y colapse."""
+    def test_collapsible_sidebar_active_tabs(self) -> None:
+        """Verifica que la barra lateral tenga las 5 pestañas activas oficiales y colapse."""
         selected_tab = None
         def _on_select(t: str) -> None:
             nonlocal selected_tab
@@ -102,18 +101,18 @@ class TestFletUIArchitecture(unittest.TestCase):
         )
 
         tab_ids = [t[0] for t in sidebar.TAB_ITEMS]
-        self.assertEqual(tab_ids, ["dashboard", "settings", "palette", "telemetry", "parameters", "help"])
-        self.assertEqual(sidebar.width, 220)
+        self.assertEqual(tab_ids, ["dashboard", "settings", "palette", "telemetry", "help"])
+        self.assertEqual(sidebar.width, 236)
 
-        # Alternar colapso (220 -> 72 -> 220)
+        # Alternar colapso (236 -> 72 -> 236)
         sidebar.toggle_collapsed()
         self.assertEqual(sidebar.width, 72)
         sidebar.toggle_collapsed()
-        self.assertEqual(sidebar.width, 220)
+        self.assertEqual(sidebar.width, 236)
 
         # Seleccionar pestañas
-        sidebar.select_tab("parameters")
-        self.assertEqual(selected_tab, "parameters")
+        sidebar.select_tab("telemetry")
+        self.assertEqual(selected_tab, "telemetry")
         sidebar.select_tab("help")
         self.assertEqual(selected_tab, "help")
 
@@ -163,7 +162,8 @@ class TestFletUIArchitecture(unittest.TestCase):
         """Verifica que actualizar la imagen en FletDiagnosticsViewport no montado sea seguro."""
         vp = FletDiagnosticsViewport(theme_manager=self.theme_mgr)
         vp.update_image(b"fake_png_bytes")
-        self.assertEqual(vp.image_control.src, b"fake_png_bytes")
+        self.assertEqual(vp._last_raw_bytes, b"fake_png_bytes")
+        self.assertTrue(bool(vp.image_control.src))
 
     def test_utils_safe_update_and_get_control_page(self) -> None:
         """Verifica que get_control_page y safe_update manejen controles no montados sin error."""
@@ -187,7 +187,6 @@ class TestFletUIArchitecture(unittest.TestCase):
         )
         self.assertEqual(tb._title_text.value, "AutoRod")
         self.assertNotIn("v2.0", tb._title_text.value)
-        self.assertFalse(tb._update_button.visible)
 
         info = UpdateInfo(
             has_update=True,
@@ -199,8 +198,7 @@ class TestFletUIArchitecture(unittest.TestCase):
             download_url="https://github.com/zeraxr/AutoRod"
         )
         tb.set_update_available(info)
-        self.assertTrue(tb._update_button.visible)
-        self.assertIn("v2.1.0", tb._update_btn_text.value)
+        self.assertTrue(tb._update_dot.visible)
 
         tb._on_close()
         self.assertTrue(closed)
@@ -217,21 +215,19 @@ class TestFletUIArchitecture(unittest.TestCase):
         self.theme_mgr.set_theme("purple")
         self.assertEqual(skeleton._spinner.color, self.theme_mgr.current.primary)
 
-    def test_collapsible_sidebar_liquid_indicator_and_shortcuts(self) -> None:
-        """Verifica los atajos, el indicador líquido y el estado de la barra lateral."""
+    def test_collapsible_sidebar_active_tab_selection(self) -> None:
+        """Verifica la selección de pestaña y estilo píldora sobrio oficial."""
         selected = None
         def _cb(t: str) -> None:
             nonlocal selected
             selected = t
 
         sidebar = FletCollapsibleGooeySidebar(on_tab_selected=_cb, theme_manager=self.theme_mgr)
-        self.assertEqual(len(sidebar._tab_indicators), 6)
-        self.assertEqual(sidebar._tab_indicators["dashboard"].bgcolor, self.theme_mgr.current.primary)
+        self.assertEqual(sidebar._active_tab, "dashboard")
 
         sidebar.select_tab("settings")
         self.assertEqual(selected, "settings")
-        self.assertEqual(sidebar._tab_indicators["settings"].bgcolor, self.theme_mgr.current.primary)
-        self.assertEqual(sidebar._tab_indicators["dashboard"].bgcolor, ft.Colors.TRANSPARENT)
+        self.assertEqual(sidebar._active_tab, "settings")
 
     def test_sober_look_and_zero_emojis_in_flet_ui(self) -> None:
         """Verifica que no existan sombras/glows y que la UI esté 100% libre de emojis."""
@@ -258,38 +254,9 @@ class TestFletUIArchitecture(unittest.TestCase):
         for opt in settings._fps_dropdown.options:
             self.assertFalse(bool(emoji_pattern.findall(opt.text)))
 
-        # 4. Parameters View sin emojis
-        params = FletParametersView(config=AppConfig(), theme_manager=self.theme_mgr)
-        self.assertFalse(bool(emoji_pattern.findall(params._title_text.value)))
-        for opt in params._profile_dropdown.options:
-            self.assertFalse(bool(emoji_pattern.findall(opt.text)))
-
-        # 5. Help View sin emojis
+        # 4. Help View sin emojis
         help_v = FletHelpView(theme_manager=self.theme_mgr)
         self.assertFalse(bool(emoji_pattern.findall(help_v._title_text.value)))
-
-    def test_parameters_view_initialization_and_saving(self) -> None:
-        """Verifica el panel de Parámetros oficial de Figma y su serialización."""
-        cfg = AppConfig(min_confidence=0.88, color_tolerance=0.18, cast_delay_ms=1600)
-        saved_cfg = None
-        def _on_save(c: AppConfig) -> None:
-            nonlocal saved_cfg
-            saved_cfg = c
-
-        params = FletParametersView(
-            config=cfg,
-            on_save_callback=_on_save,
-            theme_manager=self.theme_mgr
-        )
-        self.assertEqual(params._conf_slider.value, 88)
-        self.assertEqual(params._color_tol_slider.value, 18)
-        self.assertEqual(params._cast_delay_slider.value, 1600)
-
-        # Guardar cambios
-        params._conf_slider.value = 90
-        params._on_save_click(None)
-        self.assertIsNotNone(saved_cfg)
-        self.assertEqual(saved_cfg.min_confidence, 0.90)
 
     def test_help_view_initialization_and_search(self) -> None:
         """Verifica la vista de Ayuda con buscador en tiempo real y pasos."""
@@ -313,7 +280,7 @@ class TestFletUIArchitecture(unittest.TestCase):
             config=AppConfig()
         )
         app._breadcrumb_text = ft.Text("Inicio")
-        for tab in ("dashboard", "settings", "palette", "telemetry", "parameters", "help"):
+        for tab in ("dashboard", "settings", "palette", "telemetry", "help"):
             app._current_tab = tab
             app._update_breadcrumb_text()
             val = app._breadcrumb_text.value
@@ -369,10 +336,9 @@ class TestFletUIArchitecture(unittest.TestCase):
         studio = FletThemeStudioView(theme_manager=self.theme_mgr, config=cfg)
         telemetry = FletTelemetryView(theme_manager=self.theme_mgr)
         settings = FletSettingsView(config=cfg, theme_manager=self.theme_mgr)
-        parameters = FletParametersView(config=cfg, theme_manager=self.theme_mgr)
         help_v = FletHelpView(theme_manager=self.theme_mgr)
 
-        for view in (vp, studio, telemetry, settings, parameters, help_v):
+        for view in (vp, studio, telemetry, settings, help_v):
             self.assertEqual(view.bgcolor, "#11151f")
             self.assertIsNotNone(view.border_radius)
             self.assertEqual(view.border_radius.top_left, 16)
@@ -388,6 +354,41 @@ class TestFletUIArchitecture(unittest.TestCase):
         self.assertEqual(vp._quick_pause_btn.border.left.color, "#06b6d4")
         self.assertEqual(vp._quick_play_btn.bgcolor, "#06b6d4")
         self.assertEqual(vp._quick_pause_btn.bgcolor, "#141a2a")
+
+    def test_telemetry_apply_theme_no_attribute_error(self) -> None:
+        """Verifica que cambiar de tema no lance AttributeError por referencias obsoletas."""
+        telemetry = FletTelemetryView(theme_manager=self.theme_mgr)
+        # Debe ejecutarse sin lanzar AttributeError: '_inner_console_box'
+        telemetry.apply_theme(self.theme_mgr.current)
+        self.assertIsNotNone(telemetry._status_badge)
+
+    def test_viewport_preview_button_triggers_callback(self) -> None:
+        """Verifica que el botón 'previsualizar' del dashboard invoque el callback de stream."""
+        preview_called = False
+        def _on_preview() -> None:
+            nonlocal preview_called
+            preview_called = True
+
+        vp = FletDiagnosticsViewport(
+            theme_manager=self.theme_mgr,
+            on_toggle_preview=_on_preview
+        )
+        vp._on_pause_click(None)
+        self.assertTrue(preview_called)
+
+    def test_set_bot_running_updates_badges_across_views(self) -> None:
+        """Verifica que set_bot_running actualice dinámicamente las insignias en todas las vistas."""
+        telemetry = FletTelemetryView(theme_manager=self.theme_mgr)
+        settings = FletSettingsView(config=AppConfig(), theme_manager=self.theme_mgr)
+
+        for v in (telemetry, settings):
+            v.set_bot_running(True)
+            self.assertEqual(v._status_label.value, "Activo")
+            self.assertEqual(v._status_dot.bgcolor, "#10b981")
+
+            v.set_bot_running(False)
+            self.assertEqual(v._status_label.value, "Pausado")
+            self.assertEqual(v._status_dot.bgcolor, "#5554d9")
 
 
 if __name__ == "__main__":

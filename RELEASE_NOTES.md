@@ -1,52 +1,34 @@
-# 🎣 AutoRod v2.0.0 Release Notes
+# 🎣 AutoRod v2.1.0
 
-AutoRod v2.0 is a complete overhaul of the fishing bot for [lofi.town](https://lofi.town/). This release replaces the legacy Tkinter prototype with Clean Architecture, an adaptive computer vision pipeline, a modern Flutter-based desktop GUI (Flet), low-latency native Win32 input, and standalone portable distribution.
-
----
-
-## 🚀 Comparison: AutoRod v1.0 vs AutoRod v2.0
-
-| Feature / Aspect | 🔴 AutoRod v1.0 (Legacy) | 🟢 AutoRod v2.0 (New) |
-| :--- | :--- | :--- |
-| **User Interface (GUI)** | Basic Tkinter window with raw buttons and standard OS frame. | Modern Flutter-based GUI (Flet) with a custom frameless titlebar, live diagnostic viewport, and 6 color themes. |
-| **Click Modes (Mouse Control)** | Slow, high-overhead PyAutoGUI mouse calls. | Native Win32 **SendInput** engine with sub-millisecond dispatch. *(Note: Silent background clicking is experimental and currently in development; the bot actively moves the mouse cursor to click).* |
-| **Vision & Minigame Detection** | Basic template matching sensitive to scaling and screen resolution. | Adaptive geometric tracking with multi-scale template pyramids, needle hit confirmation, and high-speed dial ROI tracking. |
-| **Screen Capture & Performance** | Slower PyAutoGUI/PIL screenshots (~10-15 FPS) with noticeable CPU load. | High-speed DirectX/GDI capture via `MSS` running at 60 FPS with low CPU consumption. |
-| **Reward Handling** | Required manual clicks or waited passively to dismiss caught fish cards. | Automatic fish catch card detection and instant click-skipping routine. |
-| **Emergency Controls** | No global hotkey; required finding and clicking the stop button. | OS-level emergency stop with `[Q]` and cooperative pause with `[Shift+Q]`. |
-| **Windows Packaging** | Monolithic exe extracted to `%TEMP%` (frequent antivirus false alarms). | Verified Standalone Portable package (`AutoRod-v2.0.0-Portable.zip`, zero installation required). |
-| **Antivirus & OS Trust** | UPX-compressed with no metadata, triggering heuristic detections. | Disabled UPX (`--noupx`), native Windows Application Manifest (`asInvoker`, PerMonitorV2), and official PE version info. |
-| **Update Notification** | None. Manual checking required. | Prominent update button in the custom titlebar linked to GitHub Releases. |
-| **Code Architecture & Tests** | Monolithic prototype scripts (`core/bot.py`, `vision/screen.py`). | Clean Architecture with decoupled domain, ports, pipeline supervisor, and 89 automated tests (84 unit + 5 architecture rules). |
+Actualización centrada en refinamiento visual (Figma 1:1), centro de ayuda in-app y estabilidad adaptativa del motor de visión.
 
 ---
 
-## 📦 Distribution Packages & Release Notice
+### ✨ Novedades Destacadas
 
-> [!NOTE]
-> **Notice on Windows Installer (.exe setup):**
-> The dedicated Inno Setup Windows installer (`AutoRod-Setup.exe`) is currently in active refinement and has not been fully finalized. To guarantee maximum stability, safety, and a seamless plug-and-play experience, the installer has been deferred to future releases.
-> AutoRod v2.0.0 is distributed exclusively as a self-contained, standalone **Portable** package.
+* **📘 Centro de Ayuda Integrado:** Buscador en tiempo real con soluciones rápidas, guía de 4 pasos para configurar tu juego y copia de diagnóstico en un clic.
+* **🧭 Barra Lateral Figma 1:1:** Rediseño minimalista con pestañas sobrias en estilo píldora activa, transiciones fluidas de colapso y acceso directo a Discord.
+* **🎯 Calibración Adaptativa en 5 Ciclos:** El motor evalúa 5 ciclos de pesca continuos antes de fijar la escala en memoria $O(1)$, reduciendo la latencia a <2 ms.
+* **⏱️ Watchdog de Inactividad (90s):** Auto-recalibración inteligente si mueves, redimensionas o cambias el zoom del navegador.
+* **🎨 Theme Studio Refinado:** Conmutación formal Claro/Oscuro y 6 paletas de acento optimizadas con estándar WCAG 2.2 AA (>4.5:1).
+* **⌨️ Atajos Globales de Teclado:** Control rápido con `F8` (Pausar/Reanudar) y `F9` (Detener), además del freno de emergencia `Q`.
+* **🛡️ Resiliencia de Captura:** Recuperación automática ante bloqueos temporales del Administrador de Ventanas (DWM) sin interrupciones.
+* **🗑️ Simplificación de Interfaz:** Pestaña "Parámetros" deprecada y consolidada en Configuración para blindar las constantes del motor.
 
-* **`AutoRod-v2.0.0-Portable.zip` (Official Release):** Standalone archive containing the complete application bundle. No installation or Administrator privileges required. Extract anywhere and run `AutoRod.exe`.
-* **`SHA256SUMS.txt`:** Cryptographic hashes to verify package integrity:
+---
+
+### 📜 Notas Completas del Parche
+Para ver el desglose técnico detallado, comparativas y notas de desarrollo estilo League of Legends, consulta:
+👉 **[PATCHNOTES.md (Notas Completas del Parche 2.1)](PATCHNOTES.md)**
+
+---
+
+### 📦 Descarga Oficial
+
+* **`AutoRod-v2.1.0-Portable.zip`:** Versión autónoma recomendada. Descomprimir y ejecutar `AutoRod.exe` directamente.
+* **`SHA256SUMS.txt`:** Suma criptográfica de integridad:
   ```powershell
-  Get-FileHash .\AutoRod-v2.0.0-Portable.zip -Algorithm SHA256
+  Get-FileHash .\AutoRod-v2.1.0-Portable.zip -Algorithm SHA256
   ```
 
----
-
-## 🇪🇸 Resumen de Novedades y Cláusula de Distribución
-
-> [!NOTE]
-> **Cláusula sobre el Asistente de Instalación:**
-> El asistente de instalación asistida para Windows (`AutoRod-Setup.exe`) no ha sido incluido en este lanzamiento dado que se encuentra en fase de desarrollo y optimización de integración. Dicha funcionalidad queda reservada para futuras versiones.
-> Por este motivo, la versión v2.0.0 se entrega de forma exclusiva en formato **Portable**, garantizando ejecución inmediata sin instalaciones en el sistema ni elevación de privilegios UAC.
-
-Novedades destacadas de AutoRod v2.0:
-
-* **Control Nativo Win32 (SendInput):** Sustitución de PyAutoGUI por llamadas Win32 de baja latencia con precisión de milisegundos. *(Nota: El modo silencioso en segundo plano sin mover el ratón continúa en desarrollo experimental; actualmente el bot mueve el cursor físico para asegurar el clic).*
-* **Interfaz Moderna en Flutter (Flet):** Barra de título personalizada sin marco, selector de temas, visor de rayos X en tiempo real y panel de telemetría.
-* **Visión Adaptativa a 60 FPS:** Detección de diales, aguja y botones con salto automático de tarjetas de peces capturados.
-* **Freno de Emergencia:** Presiona `Q` en cualquier momento para cerrar el bot inmediatamente.
-* **Distribución Portable Plug-and-Play:** Descomprime y ejecuta `AutoRod.exe` directamente.
+> *Nota: El asistente de instalación asistida `.exe` continúa en desarrollo y se incluirá en futuras entregas.*

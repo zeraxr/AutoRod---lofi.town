@@ -47,8 +47,9 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     clock = SystemClock()
 
     # 1. Ingesta de Fotogramas Real (MSS) con fallback de seguridad a sintético
+    region = config.get_scan_region()
     try:
-        capture_source = MssCaptureSource(monitor_index=config.monitor_index)
+        capture_source = MssCaptureSource(monitor_index=config.monitor_index, region=region)
     except Exception as exc:
         logger.warning(
             "Fallo al inicializar captura MSS real (%s). "
@@ -61,7 +62,9 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     if config.vision_strategy == "geometric_vision_sota":
         vision_strategy = GeometricVisionStrategy(
             button_threshold=config.button_threshold,
-            cache_size_enabled=config.cache_button_size
+            cache_size_enabled=config.cache_button_size,
+            required_cycles_to_lock=config.required_cycles_to_lock,
+            cache_inactivity_timeout_s=config.cache_inactivity_timeout_s
         )
     elif config.vision_strategy == "hsv_contour":
         vision_strategy = HsvContourStrategy()
@@ -84,7 +87,7 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     # 5. Caso de Uso Autónomo: Mover ratón al objetivo y cliquear
     task = FindAndClickTask(
         click_cooldown_s=0.35,
-        on_cycle_completed=getattr(vision_strategy, "notify_cycle_completed", None)
+        on_cycle_completed=getattr(vision_strategy, "register_successful_cycle", None)
     )
 
     # 6. Colas Concurrenciales Hilo-Seguras con Descarte LIFO (Latest-Frame-Wins)

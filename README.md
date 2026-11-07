@@ -23,11 +23,11 @@ Bot de pesca para [lofi.town](https://lofi.town/) usando visión por computadora
 * **Reward skipping:** Clicks past fish reward cards quickly to keep fishing.
 * **Fast native clicking:** Uses native Windows `SendInput` APIs for fast, millisecond-precise mouse clicks. *(Note: Silent background mode is experimental and in development; the bot actively moves the cursor to click).*
 * **Preview window:** Shows what the bot sees and where it is clicking in real time.
-* **Emergency stop:** Press `Q` at any time to close the bot, or `Shift+Q` to pause.
+* **Emergency stop & shortcuts:** Press `F8` to toggle pause, `F9` or `Q` to stop, or `Shift+Q` to pause.
 
 ### Download
 Grab the latest release from the **[Releases](../../releases)** tab:
-* **Portable (`AutoRod-v2.0.0-Portable.zip`):** Standalone version. Unzip and run `AutoRod.exe` directly. No install needed.
+* **Portable (`AutoRod-v2.1.0-Portable.zip`):** Standalone version. Unzip and run `AutoRod.exe` directly. No install needed.
 *(Note: A dedicated setup installer is currently in development and will be included in future releases).*
 
 ### Note about Antivirus
@@ -67,11 +67,11 @@ python -m unittest discover -s tests
 * **Salto de recompensas:** Pasa rápido las cartas de peces capturados para seguir pescando sin pausas.
 * **Clics rápidos nativos:** Utiliza la API nativa de Windows `SendInput` para clics rápidos y precisos. *(Nota: El modo en segundo plano sin mover el ratón se encuentra en fase experimental; el bot mueve el cursor para hacer clic).*
 * **Visor en vivo:** Muestra en tiempo real qué está detectando el bot en pantalla.
-* **Freno de emergencia:** Presiona `Q` en cualquier momento para cerrar el bot al instante, o `Shift+Q` para pausar.
+* **Freno de emergencia y atajos:** Presiona `F8` para pausar/reanudar, `F9` o `Q` para detener al instante, o `Shift+Q` para pausar.
 
 ### Descarga
 Descarga la versión más reciente en la pestaña de **[Releases](../../releases)**:
-* **Portable (`AutoRod-v2.0.0-Portable.zip`):** Versión independiente. Descomprime y abre `AutoRod.exe` directamente sin instalación.
+* **Portable (`AutoRod-v2.1.0-Portable.zip`):** Versión independiente. Descomprime y abre `AutoRod.exe` directamente sin instalación.
 *(Nota: El instalador asistido .exe está actualmente en desarrollo y se incorporará en versiones futuras).*
 
 ### Nota sobre Antivirus

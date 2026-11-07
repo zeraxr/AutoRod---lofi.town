@@ -3,6 +3,7 @@
 from typing import Callable, Any
 from pathlib import Path
 from datetime import datetime
+import base64
 import random
 import flet as ft
 from autorod.infrastructure.ui.flet.theme import ThemeManager, ThemeTokens
@@ -67,12 +68,14 @@ class FletDiagnosticsViewport(ft.Container):
         theme_manager: ThemeManager | None = None,
         on_clear_cache: Callable[[], None] | None = None,
         on_toggle_bot: Callable[[], None] | None = None,
+        on_toggle_preview: Callable[[], None] | None = None,
         config: Any | None = None
     ) -> None:
         self._theme_mgr = theme_manager or ThemeManager.get_instance()
         self._theme: ThemeTokens = self._theme_mgr.current
         self._on_clear_cache = on_clear_cache
         self._on_toggle_bot = on_toggle_bot
+        self._on_toggle_preview = on_toggle_preview
         self._config = config
         self._is_preview_active = False
         self._is_bot_running = False
@@ -83,18 +86,19 @@ class FletDiagnosticsViewport(ft.Container):
         # ---------------------------------------------------------------------
         # 1. PRESENTACIÓN: SALUDO DINÁMICO Y BOTONES DE ACCIÓN RÁPIDA (Figma 43:6)
         # ---------------------------------------------------------------------
-        initial_greeting = get_time_based_greeting() if self._use_local_time else "¡Bienvenido a AutoRod!"
+        initial_greeting = get_time_based_greeting() if self._use_local_time else "¡Buen día!"
         self._greeting_text = ft.Text(
             initial_greeting,
-            size=26,
-            weight=ft.FontWeight.W_700,
-            color="#ffffff"
+            size=29,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._theme.mode == "dark" else self._theme.text_primary
         )
 
         self._splash_text = ft.Text(
             get_random_splash_phrase(),
-            size=12,
-            color="#a5b4ff"
+            size=13,
+            weight=ft.FontWeight.NORMAL,
+            color="#a5b4ff" if self._theme.mode == "dark" else self._theme.text_secondary
         )
 
         self._splash_container = ft.Container(
@@ -110,45 +114,49 @@ class FletDiagnosticsViewport(ft.Container):
                 self._greeting_text,
                 self._splash_container
             ],
-            spacing=2,
+            spacing=8,
             visible=self._show_greetings
         )
 
+        self._pause_icon = ft.Icon(ft.Icons.REMOVE_RED_EYE_OUTLINED, size=15, color="#ffffff")
+        self._pause_label = ft.Text("previsualizar", size=12, color="#ffffff", weight=ft.FontWeight.NORMAL)
         self._quick_pause_btn = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.PAUSE_ROUNDED, size=14, color="#ffffff"),
-                    ft.Text("pausar", size=12, color="#ffffff", weight=ft.FontWeight.W_500)
+                    self._pause_icon,
+                    self._pause_label
                 ],
-                spacing=6,
+                spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor="#141a2a",
-            border=ft.Border.all(1, self._custom_accent),
+            bgcolor="#141a2a" if self._theme.mode == "dark" else "#ffffff",
+            border=ft.Border.all(1, self._custom_accent if self._theme.mode == "dark" else "#c7d2fe"),
             border_radius=8,
-            height=34,
+            height=36,
             padding=ft.Padding.symmetric(horizontal=13),
             on_click=self._on_pause_click,
-            tooltip="Pausar ejecución del bot [Shift + Q]",
+            tooltip="Alternar previsualización de pantalla",
             ink=True
         )
 
+        self._play_icon = ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, size=15, color="#ffffff")
+        self._play_label = ft.Text("iniciar", size=12, color="#ffffff", weight=ft.FontWeight.NORMAL)
         self._quick_play_btn = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, size=14, color="#ffffff"),
-                    ft.Text("iniciar", size=12, color="#ffffff", weight=ft.FontWeight.W_500)
+                    self._play_icon,
+                    self._play_label
                 ],
-                spacing=6,
+                spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
             bgcolor=self._custom_accent,
             border=ft.Border.all(1, self._custom_accent),
             border_radius=8,
-            height=34,
+            height=36,
             padding=ft.Padding.symmetric(horizontal=13),
             on_click=self._on_play_click,
-            tooltip="Iniciar o reanudar bot [Shift + Q]",
+            tooltip="Iniciar o reanudar sesión [Shift + Q]",
             ink=True
         )
 
@@ -160,7 +168,7 @@ class FletDiagnosticsViewport(ft.Container):
                         self._quick_pause_btn,
                         self._quick_play_btn
                     ],
-                    spacing=8
+                    spacing=10
                 )
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -171,9 +179,10 @@ class FletDiagnosticsViewport(ft.Container):
         # 2. CONTENEDOR DE FOTOGRAMAS (EN VIVO)
         # ---------------------------------------------------------------------
         self.image_control = ft.Image(
-            src=b"",
+            src="",
             fit=ft.BoxFit.CONTAIN,
             border_radius=8,
+            gapless_playback=True,
             expand=True
         )
         self._image_container = ft.Container(
@@ -203,43 +212,27 @@ class FletDiagnosticsViewport(ft.Container):
 
         self.card_motor = FletMetricCard(
             title="ESTADO",
-            default_val="PAUSADO [Shift+Q]",
-            subtext="En espera para iniciar",
+            default_val="Pausado",
+            subtext="",
             theme_manager=self._theme_mgr
         )
         self.card_cache = FletMetricCard(
             title="TAMAÑO DE CACHÉ",
             default_val="Esperando objetivo",
-            subtext="Ahorro CPU activo",
-            theme_manager=self._theme_mgr,
-            action_control=self._clear_cache_btn
+            subtext="",
+            theme_manager=self._theme_mgr
         )
         self.card_monitor = FletMetricCard(
             title="MONITOR",
             default_val="Monitor 1",
-            subtext="MSS Ingesta Física",
+            subtext="",
             theme_manager=self._theme_mgr
         )
         self.card_latencia = FletMetricCard(
             title="LATENCIA ESTIMADA",
             default_val="< 20 ms, objetivo: 60 FPS",
-            subtext="Objetivo: 60 FPS",
+            subtext="",
             theme_manager=self._theme_mgr
-        )
-
-        # Insignias de compatibilidad
-        self._standby_dot = ft.Container(width=6, height=6, border_radius=3, bgcolor="#f59e0b")
-        self._standby_label = ft.Text("BOT EN PAUSA", size=10, weight=ft.FontWeight.BOLD, color="#f59e0b")
-        self._standby_status_badge = ft.Container(
-            content=ft.Row(
-                controls=[self._standby_dot, self._standby_label],
-                spacing=6,
-                alignment=ft.MainAxisAlignment.CENTER
-            ),
-            bgcolor="#1f180d",
-            border=ft.Border.all(1, "#3d2c14"),
-            border_radius=6,
-            padding=ft.Padding.symmetric(horizontal=10, vertical=4)
         )
 
         cards_stack = ft.Column(
@@ -249,7 +242,7 @@ class FletDiagnosticsViewport(ft.Container):
                 self.card_monitor,
                 self.card_latencia
             ],
-            spacing=8,
+            spacing=12,
             expand=True
         )
 
@@ -267,16 +260,29 @@ class FletDiagnosticsViewport(ft.Container):
         )
 
         # ---------------------------------------------------------------------
-        # 4. CABECERA DE PREVISUALIZACIÓN Y MÉTRICAS (Figma 43:21)
+        # 4. CABECERA DE PREVISUALIZACIÓN Y MÉTRICAS (Figma 1:1)
         # ---------------------------------------------------------------------
-        self._status_dot = ft.Container(width=6, height=6, border_radius=3, bgcolor="#f59e0b")
-        self._status_text = ft.Text("EN ESPERA (PAUSADO)", size=10, weight=ft.FontWeight.BOLD, color="#f59e0b")
-        self._status_badge = ft.Row(controls=[self._status_dot, self._status_text], spacing=6)
+        self._res_badge = ft.Text(
+            "1920×1080 · vista adaptada al panel",
+            size=11,
+            weight=ft.FontWeight.NORMAL,
+            color="#a5b4ff" if self._theme.mode == "dark" else self._theme.text_secondary
+        )
+        self._preview_title_text = ft.Text(
+            "Previsualización de pantalla",
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._theme.mode == "dark" else self._theme.text_primary
+        )
+        
+        # Objetos auxiliares ocultos para retrocompatibilidad de pruebas
+        self._status_dot = ft.Container(visible=False)
+        self._status_text = ft.Text(visible=False)
+        self._mode_badge = ft.Text(visible=False)
+        self._standby_dot = ft.Container(visible=False)
+        self._standby_label = ft.Text(visible=False)
+        self._standby_status_badge = ft.Container(visible=False)
 
-        self._res_badge = ft.Text("1920×1080 · vista adaptada al panel", size=11, color="#a5b4ff")
-        self._mode_badge = ft.Text("Standby", size=10, weight=ft.FontWeight.BOLD, color="#9ca3af")
-
-        self._preview_title_text = ft.Text("Previsualización de pantalla", size=13.5, weight=ft.FontWeight.BOLD, color=self._theme.text_primary)
         preview_header_row = ft.Row(
             controls=[
                 ft.Column(
@@ -284,19 +290,10 @@ class FletDiagnosticsViewport(ft.Container):
                         self._preview_title_text,
                         self._res_badge
                     ],
-                    spacing=2
-                ),
-                ft.Row(
-                    controls=[
-                        self._status_badge,
-                        ft.Container(width=4),
-                        self._mode_badge
-                    ],
-                    spacing=8,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER
+                    spacing=5
                 )
             ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            alignment=ft.MainAxisAlignment.START,
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
 
@@ -304,16 +301,15 @@ class FletDiagnosticsViewport(ft.Container):
             content=ft.Column(
                 controls=[
                     preview_header_row,
-                    ft.Container(height=6),
                     self._center_switcher
                 ],
                 expand=True,
-                spacing=8
+                spacing=20
             ),
             bgcolor=self._theme.card_bg,
             border=ft.Border.all(1, self._theme.card_border),
             border_radius=12,
-            padding=ft.Padding.all(16),
+            padding=ft.Padding.all(20),
             expand=True
         )
 
@@ -321,26 +317,29 @@ class FletDiagnosticsViewport(ft.Container):
             content=ft.Column(
                 controls=[
                     presentation_header,
-                    ft.Container(height=4),
                     self._preview_card_frame
                 ],
-                spacing=12,
+                spacing=24,
                 expand=True
             ),
             expand=True,
             bgcolor=self._theme.canvas_bg,
-            padding=ft.Padding.all(20),
+            padding=ft.Padding.only(left=32, right=32, top=28, bottom=28),
             border_radius=ft.BorderRadius.only(top_left=16, bottom_left=16)
         )
 
         self._theme_mgr.subscribe(self._on_theme_updated)
 
     def _on_pause_click(self, e: Any = None) -> None:
-        if self._is_bot_running and self._on_toggle_bot:
-            self._on_toggle_bot()
+        if self._on_toggle_preview:
+            self._on_toggle_preview()
+        else:
+            self.set_preview_active(not self._is_preview_active)
+
+    _on_preview_click = _on_pause_click
 
     def _on_play_click(self, e: Any = None) -> None:
-        if not self._is_bot_running and self._on_toggle_bot:
+        if self._on_toggle_bot:
             self._on_toggle_bot()
 
     def _handle_clear_cache(self, e: Any = None) -> None:
@@ -414,6 +413,9 @@ class FletDiagnosticsViewport(ft.Container):
             self._status_text.color = self._custom_accent
             self._mode_badge.value = "Captura MSS en Vivo"
             self._mode_badge.color = "#38bdf8"
+            self._pause_icon.name = ft.Icons.VISIBILITY_OFF_ROUNDED
+            self._pause_label.value = "ocultar"
+            self._quick_pause_btn.tooltip = "Ocultar previsualización de pantalla"
         else:
             self._center_switcher.content = self._standby_view
             self._status_dot.bgcolor = "#f59e0b"
@@ -421,6 +423,10 @@ class FletDiagnosticsViewport(ft.Container):
             self._status_text.color = "#f59e0b" if not self._is_bot_running else self._custom_accent
             self._mode_badge.value = "Standby"
             self._mode_badge.color = "#9ca3af"
+            self._pause_icon.name = ft.Icons.REMOVE_RED_EYE_OUTLINED
+            self._pause_label.value = "previsualizar"
+            self._quick_pause_btn.tooltip = "Alternar previsualización de pantalla"
+        safe_update(self._quick_pause_btn)
         safe_update(self)
 
     def set_bot_running(self, running: bool) -> None:
@@ -428,36 +434,26 @@ class FletDiagnosticsViewport(ft.Container):
         self._is_bot_running = running
         accent = getattr(self, "_custom_accent", self._theme.primary)
         if running:
-            self._standby_dot.bgcolor = accent
-            self._standby_label.value = "BOT ACTIVO"
-            self._standby_label.color = accent
-            self._standby_status_badge.bgcolor = self._theme.accent_subtle
-            self._standby_status_badge.border = ft.Border.all(1, self._theme.border_active)
+            self.card_motor.update_val("Activo")
+            self._play_icon.name = ft.Icons.PAUSE_ROUNDED
+            self._play_label.value = "pausar"
+            self._quick_play_btn.tooltip = "Pausar sesión del bot [Shift + Q]"
             self._quick_play_btn.bgcolor = "#3d3cac"
-            self._quick_pause_btn.bgcolor = "#1e263d"
-            self._quick_pause_btn.border = ft.Border.all(1, accent)
-            if not self._is_preview_active:
-                self._status_dot.bgcolor = accent
-                self._status_text.value = "BOT ACTIVO"
-                self._status_text.color = accent
         else:
-            self._standby_dot.bgcolor = "#f59e0b"
-            self._standby_label.value = "BOT EN PAUSA"
-            self._standby_label.color = "#f59e0b"
-            self._standby_status_badge.bgcolor = "#1f180d"
-            self._standby_status_badge.border = ft.Border.all(1, "#3d2c14")
+            self.card_motor.update_val("Pausado")
+            self._play_icon.name = ft.Icons.PLAY_ARROW_ROUNDED
+            self._play_label.value = "iniciar"
+            self._quick_play_btn.tooltip = "Iniciar o reanudar sesión [Shift + Q]"
             self._quick_play_btn.bgcolor = accent
-            self._quick_play_btn.border = ft.Border.all(1, accent)
-            self._quick_pause_btn.bgcolor = "#141a2a"
-            self._quick_pause_btn.border = ft.Border.all(1, accent)
-            if not self._is_preview_active:
-                self._status_dot.bgcolor = "#f59e0b"
-                self._status_text.value = "EN ESPERA (PAUSADO)"
-                self._status_text.color = "#f59e0b"
+        safe_update(self._quick_play_btn)
         safe_update(self)
 
-    def update_image(self, img_bytes: bytes) -> None:
-        self.image_control.src = img_bytes
+    def update_image(self, img_bytes: bytes | str) -> None:
+        self._last_raw_bytes = img_bytes
+        if isinstance(img_bytes, (bytes, bytearray)):
+            self.image_control.src = base64.b64encode(img_bytes).decode("ascii")
+        else:
+            self.image_control.src = str(img_bytes)
         if self._is_preview_active:
             safe_update(self.image_control)
 

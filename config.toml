@@ -3,6 +3,11 @@
 target_fps = 120
 monitor_index = 1
 capture_source = "mss"
+scan_region_enabled = true
+scan_x1 = 670
+scan_y1 = 246
+scan_x2 = 1244
+scan_y2 = 700
 
 # Comportamiento
 pause_on_defocus = false
@@ -19,21 +24,13 @@ use_local_time = true
 enable_transition_animations = true
 language = "es"
 
-# Parámetros de Detección y Ritmo
-profile = "balanced"
-min_confidence = 0.85
-color_tolerance = 0.20
-search_area = "fullscreen"
-cast_delay_ms = 1500
-max_wait_bite_sec = 30
-retry_on_lost = true
-pause_on_consecutive_errors = 3
-
 # Parámetros Internos del Motor
 input_backend = "sendinput"
 vision_strategy = "geometric_vision_sota"
 button_threshold = 0.63
 cache_button_size = true
+required_cycles_to_lock = 5
+cache_inactivity_timeout_s = 90.0
 humanized_input = false
 ui_theme = "default"
 ui_transparency = 1.00

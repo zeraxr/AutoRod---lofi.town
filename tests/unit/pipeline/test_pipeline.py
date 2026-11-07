@@ -215,5 +215,43 @@ class TestPipelineFlow(unittest.TestCase):
         self.assertEqual(task.current_state, FishingState.SCANNING)
 
 
+    def test_capture_producer_transient_error_resilience(self) -> None:
+        """Verifica que fallos transitorios en grab() no maten el productor y se recupere."""
+        import threading
+        from unittest.mock import MagicMock
+        from autorod.domain.models.image_payload import ImagePayload, PixelFormat
+
+        source = MagicMock()
+        payload = ImagePayload(
+            width=10, height=10, pixel_format=PixelFormat.BGR8,
+            stride=30, data=b"x" * 300, frame_id=1,
+            captured_at_ns=1000, source_id="test"
+        )
+        # 2 fallos transitorios y luego éxito
+        source.grab.side_effect = [RuntimeError("BitBlt transient fail"), RuntimeError("BitBlt transient fail"), payload]
+
+        clock = SystemClock()
+        frame_q: LatestFrameQueue[Any] = LatestFrameQueue(maxsize=1)
+        producer = CaptureProducer(source, frame_q, clock, target_fps=120)
+
+        th = threading.Thread(target=producer.run, daemon=True)
+        th.start()
+
+        # Esperar a que se procese el fotograma exitoso
+        item = None
+        for _ in range(30):
+            try:
+                item = frame_q.get(timeout=0.05)
+                if item is not None and item != _STOP:
+                    break
+            except Exception:
+                pass
+
+        producer.stop()
+        th.join(timeout=2.0)
+
+        self.assertEqual(item, payload)
+
+
 if __name__ == "__main__":
     unittest.main()

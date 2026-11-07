@@ -44,7 +44,7 @@ class FindAndClickTask(IBotTask):
             card_cooldown_s: float = 0.12,
             max_card_dismiss_clicks: int = 5,
             state_machine: FishingStateMachine | None = None,
-            on_cycle_completed: Callable[[], None] | None = None,
+            on_cycle_completed: Callable[[int], None] | None = None
     ) -> None:
         self.enabled = True
         self._last_click_time = 0.0
@@ -55,12 +55,13 @@ class FindAndClickTask(IBotTask):
         self._card_cooldown_s = card_cooldown_s
         self._max_card_dismiss_clicks = max_card_dismiss_clicks
         self._fsm = state_machine or FishingStateMachine(minigame_timeout_s=16.0, card_timeout_s=6.0)
-        self._on_cycle_completed = on_cycle_completed
-        self._cycle_completed_reported = False
         self._minigame_hits = 0
         self._card_dismiss_clicks = 0
         self._card_dismiss_start = 0.0
         self._last_card_center: Point | None = None
+        self._on_cycle_completed = on_cycle_completed
+        self._total_successful_cycles = 0
+        self._cycle_in_progress = False
 
     @property
     def state_machine(self) -> FishingStateMachine:
@@ -69,6 +70,19 @@ class FindAndClickTask(IBotTask):
     @property
     def current_state(self) -> FishingState:
         return self._fsm.state
+
+    @property
+    def total_successful_cycles(self) -> int:
+        return self._total_successful_cycles
+
+    def _on_cycle_success(self) -> None:
+        self._total_successful_cycles += 1
+        logger.info("[CICLO] ¡Ciclo de pesca #%d completado satisfactoriamente!", self._total_successful_cycles)
+        if self._on_cycle_completed:
+            try:
+                self._on_cycle_completed(self._total_successful_cycles)
+            except Exception as exc:
+                logger.warning("Error al notificar ciclo completado: %s", exc)
 
     def evaluate(self, result: MatchResult) -> Sequence[InputCommand]:
         if not self.enabled:
@@ -82,6 +96,7 @@ class FindAndClickTask(IBotTask):
             self._minigame_hits = 0
             self._card_dismiss_clicks = 0
             self._last_card_center = None
+            self._cycle_in_progress = False
 
         strategy = result.strategy_id
 
@@ -98,13 +113,9 @@ class FindAndClickTask(IBotTask):
                 self._card_dismiss_clicks = 0
                 self._minigame_hits = 0
                 self._last_card_center = None
-                if not self._cycle_completed_reported:
-                    self._cycle_completed_reported = True
-                    if self._on_cycle_completed:
-                        try:
-                            self._on_cycle_completed()
-                        except Exception as exc:
-                            logger.warning("Error en callback on_cycle_completed: %s", exc)
+                if self._cycle_in_progress:
+                    self._cycle_in_progress = False
+                    self._on_cycle_success()
                 # Se procesará como botón CAST! abajo
             else:
                 elapsed = now - self._card_dismiss_start
@@ -119,13 +130,9 @@ class FindAndClickTask(IBotTask):
                     self._card_dismiss_clicks = 0
                     self._minigame_hits = 0
                     self._last_card_center = None
-                    if not self._cycle_completed_reported:
-                        self._cycle_completed_reported = True
-                        if self._on_cycle_completed:
-                            try:
-                                self._on_cycle_completed()
-                            except Exception as exc:
-                                logger.warning("Error en callback on_cycle_completed: %s", exc)
+                    if self._cycle_in_progress:
+                        self._cycle_in_progress = False
+                        self._on_cycle_success()
                     return []
 
                 # Si la tarjeta sigue detectada, refrescar su centro
@@ -189,6 +196,7 @@ class FindAndClickTask(IBotTask):
             logger.info("[BOTON] Botón 'CAST!' detectado y accionado en %s. Caña lanzada, esperando...", coords_str)
 
         elif strategy == "reel_button_detected":
+            self._cycle_in_progress = True
             self._fsm.transition_to(FishingState.MINIGAME, now)
             self._minigame_hits = 0
             self._card_dismiss_clicks = 0
@@ -212,7 +220,6 @@ class FindAndClickTask(IBotTask):
             self._fsm.transition_to(FishingState.CARD_DISMISS, now)
             self._card_dismiss_start = now
             self._card_dismiss_clicks = 0
-            self._cycle_completed_reported = False
             self._last_card_center = result.center
             self._last_click_time = 0.0
             logger.info(

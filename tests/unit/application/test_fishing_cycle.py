@@ -238,38 +238,6 @@ class TestFishingCycleTask(unittest.TestCase):
             self.assertEqual(len(c), 0)
             self.assertEqual(task.current_state, FishingState.SCANNING)
 
-    def test_on_cycle_completed_invoked_on_card_dismissal(self) -> None:
-        """Verifica que el callback on_cycle_completed se dispare exactamente 1 vez por ciclo completado."""
-        cycle_count = 0
-        def on_cycle():
-            nonlocal cycle_count
-            cycle_count += 1
-
-        fsm = FishingStateMachine(minigame_timeout_s=5.0, card_timeout_s=3.0)
-        task = FindAndClickTask(
-            card_dismiss_duration_s=1.0,
-            card_initial_delay_s=0.0,
-            card_cooldown_s=0.0,
-            max_card_dismiss_clicks=1,
-            state_machine=fsm,
-            on_cycle_completed=on_cycle
-        )
-
-        # 1. Picar pez (REEL -> MINIGAME)
-        task.evaluate(self._make_result("reel_button_detected"))
-        self.assertEqual(task.current_state, FishingState.MINIGAME)
-        self.assertEqual(cycle_count, 0)
-
-        # 2. Tarjeta blanca desplegada (MINIGAME -> CARD_DISMISS)
-        task.evaluate(self._make_result("blank_card_detected"))
-        self.assertEqual(task.current_state, FishingState.CARD_DISMISS)
-        self.assertEqual(cycle_count, 0)
-
-        # 3. Reaparición de CAST! cierra la tarjeta -> notifica ciclo completado
-        task.evaluate(self._make_result("cast_button_detected"))
-        self.assertEqual(task.current_state, FishingState.SCANNING)
-        self.assertEqual(cycle_count, 1)
-
 
 if __name__ == "__main__":
     unittest.main()

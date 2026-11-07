@@ -1,3 +1,4 @@
+import time
 import math
 import logging
 from pathlib import Path
@@ -33,17 +34,12 @@ class GeometricVisionStrategy(IVisionStrategy):
     """
 
     BUTTON_CANDIDATE_SCALES: tuple[float, ...] = (
-        1.0, 1.25, 1.50, 0.80, 0.90, 1.10, 0.75, 1.20, 1.33, 1.40,
-        1.75, 2.0, 1.60, 1.875, 2.25, 2.50,
-        0.70, 0.67, 0.60, 0.55, 0.50, 0.45, 0.40,
-        0.85, 0.95, 1.05, 1.15
+        1.0, 0.95, 1.05, 0.90, 1.10, 0.85, 1.15, 0.80, 1.25, 0.75, 0.70, 0.65, 0.60, 0.55, 0.50, 1.40, 1.50
     )
 
-    # Escalas candidatas para el dial (cobertura integral de zoom y DPI de 0.40x a 2.50x)
+    # Escalas candidatas para el dial (evaluando escala nativa ~1.0 primero, con cobertura de zoom 0.5x a 1.35x)
     DIAL_CANDIDATE_SCALES: tuple[float, ...] = (
-        1.0, 1.25, 1.50, 0.80, 0.90, 1.10, 0.75, 1.20, 1.33, 1.40,
-        1.75, 2.0, 1.60, 1.875, 2.25, 2.50, 0.70, 0.67, 0.60, 0.50,
-        0.85, 0.95, 1.05, 1.15
+        1.0, 0.95, 1.05, 0.90, 1.10, 0.85, 1.15, 0.80, 1.25, 0.75, 1.35, 0.70, 0.60, 0.50
     )
 
     def __init__(
@@ -52,6 +48,8 @@ class GeometricVisionStrategy(IVisionStrategy):
             button_threshold: float = 0.63,
             dial_threshold: float = 0.50,
             cache_size_enabled: bool = True,
+            required_cycles_to_lock: int = 5,
+            cache_inactivity_timeout_s: float = 90.0,
             # Verde claro objetivo del minijuego (HSV [33, 76, 188])
             target_green_lower: tuple[int, int, int] = (29, 50, 150),
             target_green_upper: tuple[int, int, int] = (40, 115, 230),
@@ -101,40 +99,19 @@ class GeometricVisionStrategy(IVisionStrategy):
         self._cached_dimensions: tuple[int, int] | None = None
         self._last_dial_roi: tuple[int, int, int, int] | None = None
         self._dial_tracking_frames: int = 0
-        self._completed_cycles: int = 0
+        self._required_cycles_to_lock: int = max(1, int(required_cycles_to_lock))
+        self._successful_cycles: int = 0
+        self._is_cache_locked: bool = False
+        self._scale_observations: list[float] = []
+        self._dimension_observations: list[tuple[int, int]] = []
+        self._cache_inactivity_timeout_s: float = float(cache_inactivity_timeout_s)
+        self._last_match_timestamp: float = 0.0
 
         self._load_templates()
 
     @property
     def strategy_id(self) -> str:
         return self._strategy_id
-
-    @property
-    def completed_cycles(self) -> int:
-        return self._completed_cycles
-
-    @property
-    def is_afk_consolidated(self) -> bool:
-        """Indica si el bot superó los 5 ciclos de calibración y opera en modo AFK consolidado."""
-        return self._completed_cycles >= 5
-
-    def notify_cycle_completed(self) -> None:
-        """
-        Registra la finalización exitosa de un ciclo de pesca (tarjeta cerrada -> CAST!).
-        Tras 5 ciclos, el motor asume modo AFK consolidado y fija el uso exclusivo de caché.
-        """
-        self._completed_cycles += 1
-        if self._completed_cycles == 5:
-            logger.info(
-                "[CALIBRACION] ¡5 ciclos de pesca completados con éxito! Entrando en Modo AFK Consolidado. "
-                "Escala fijada en %.2fx para máximo ahorro de CPU.",
-                self._cached_button_scale or 1.0
-            )
-        else:
-            logger.info(
-                "[CALIBRACION] Ciclo de pesca #%d/5 completado. Calibración dinámica activa.",
-                self._completed_cycles
-            )
 
     @property
     def button_threshold(self) -> float:
@@ -170,6 +147,66 @@ class GeometricVisionStrategy(IVisionStrategy):
     def cached_dimensions(self) -> tuple[int, int] | None:
         return self._cached_dimensions
 
+    @property
+    def is_cache_locked(self) -> bool:
+        return self._is_cache_locked
+
+    @property
+    def successful_cycles(self) -> int:
+        return self._successful_cycles
+
+    @property
+    def required_cycles_to_lock(self) -> int:
+        return self._required_cycles_to_lock
+
+    @required_cycles_to_lock.setter
+    def required_cycles_to_lock(self, val: int) -> None:
+        self._required_cycles_to_lock = max(1, int(val))
+
+    @property
+    def cache_inactivity_timeout_s(self) -> float:
+        return self._cache_inactivity_timeout_s
+
+    @cache_inactivity_timeout_s.setter
+    def cache_inactivity_timeout_s(self, val: float) -> None:
+        self._cache_inactivity_timeout_s = max(5.0, float(val))
+
+    @property
+    def last_match_timestamp(self) -> float:
+        return self._last_match_timestamp
+
+    def register_successful_cycle(self, cycle_count: int | None = None) -> None:
+        """
+        Registra la culminación exitosa de un ciclo de pesca completo.
+        Al alcanzar required_cycles_to_lock (5 ciclos) satisfactorios continuos, asegura la estabilidad
+        del HUD del navegador y bloquea las variables de escala y dimensiones en memoria caché.
+        """
+        if cycle_count is not None:
+            self._successful_cycles = cycle_count
+        else:
+            self._successful_cycles += 1
+
+        logger.info(
+            "[VISION-CACHE] Ciclo de pesca satisfactorio #%d registrado (Objetivo de fijación: %d).",
+            self._successful_cycles, self._required_cycles_to_lock
+        )
+
+        if self._cache_size_enabled and not self._is_cache_locked:
+            if self._successful_cycles >= self._required_cycles_to_lock:
+                from collections import Counter
+                if self._scale_observations:
+                    most_common_scale, _ = Counter(self._scale_observations).most_common(1)[0]
+                    self._cached_button_scale = most_common_scale
+                if self._dimension_observations:
+                    most_common_dims, _ = Counter(self._dimension_observations).most_common(1)[0]
+                    self._cached_dimensions = most_common_dims
+                self._is_cache_locked = True
+                self._last_match_timestamp = time.monotonic()
+                logger.info(
+                    "[VISION-CACHE] ¡HUD verificado estable tras %d ciclos! Dimensiones bloqueadas en caché: %s (escala %.2f). Pasando a modo O(1) de baja latencia con ventana watchdog de %.0fs.",
+                    self._successful_cycles, self._cached_dimensions, self._cached_button_scale or 1.0, self._cache_inactivity_timeout_s
+                )
+
     def clear_scale_cache(self) -> None:
         """Purga la memoria de tamaño/escala para forzar una recalibración completa."""
         self._cached_button_scale = None
@@ -177,8 +214,12 @@ class GeometricVisionStrategy(IVisionStrategy):
         self._cached_dimensions = None
         self._last_dial_roi = None
         self._dial_tracking_frames = 0
-        self._completed_cycles = 0
-        logger.info("Caché de dimensiones y ROI purgado. Calibración dinámica activa.")
+        self._successful_cycles = 0
+        self._is_cache_locked = False
+        self._scale_observations.clear()
+        self._dimension_observations.clear()
+        self._last_match_timestamp = 0.0
+        logger.info("Caché de dimensiones y ROI purgado. Recalibración activa.")
 
     def _load_templates(self) -> None:
         """Precarga y almacena en memoria los ndarray BGR de las plantillas oficiales."""
@@ -261,6 +302,7 @@ class GeometricVisionStrategy(IVisionStrategy):
                 self._precomputed_dial[s] = (stpl, smask)
 
     def analyze(self, frame: ImagePayload, template_ref: str | None = None) -> MatchResult:
+        now = time.monotonic()
         img_bgr = payload_to_ndarray(frame)
         ox = frame.offset_x
         oy = frame.offset_y
@@ -272,6 +314,7 @@ class GeometricVisionStrategy(IVisionStrategy):
         if card_match is not None:
             self._last_dial_roi = None
             self._dial_tracking_frames = 0
+            self._last_match_timestamp = now
             return card_match
 
         # Redimensionamiento unificado a media resolución para fases 2 y 3 (calculado una sola vez)
@@ -286,6 +329,7 @@ class GeometricVisionStrategy(IVisionStrategy):
         if btn_match is not None:
             self._last_dial_roi = None
             self._dial_tracking_frames = 0
+            self._last_match_timestamp = now
             return btn_match
 
         # ==========================================================
@@ -294,6 +338,7 @@ class GeometricVisionStrategy(IVisionStrategy):
         if self._last_dial_roi is not None:
             fast_match = self._track_known_dial(img_bgr, ox, oy, frame.frame_id)
             if fast_match is not None:
+                self._last_match_timestamp = now
                 return fast_match
             # Si el dial ya no está en el ROI, se limpió de la pantalla (minijuego finalizado)
             self._last_dial_roi = None
@@ -303,11 +348,27 @@ class GeometricVisionStrategy(IVisionStrategy):
         # ==========================================================
         minigame_match = self._detect_minigame(small_screen, img_bgr, ox, oy, frame.frame_id, frame.source_id)
         if minigame_match is not None:
+            self._last_match_timestamp = now
             return minigame_match
 
         # ==========================================================
         # FASE 5: En Espera / Rastreo Activo
+        # Watchdog Temporal: Cuando el caché está bloqueado, se monitorea una ventana continua
+        # de inactividad (90 segundos). Si transcurre ese tiempo sin NINGÚN match en pantalla
+        # (cubriendo holgadamente la espera pasiva de picada), se purga el caché automáticamente.
+        # Si el caché NO está bloqueado, este mecanismo está inactivo (búsqueda exploratoria continua).
         # ==========================================================
+        if self._cache_size_enabled and self._is_cache_locked:
+            if self._last_match_timestamp == 0.0:
+                self._last_match_timestamp = now
+            elif (now - self._last_match_timestamp) >= self._cache_inactivity_timeout_s:
+                logger.warning(
+                    "[VISION-CACHE] Inactividad crítica de %.1fs sin ningún match en modo bloqueado. "
+                    "Posible cambio de HUD/navegador o ventana desfasada. Purgando caché para re-calibración.",
+                    now - self._last_match_timestamp
+                )
+                self.clear_scale_cache()
+
         return MatchResult(
             found=False,
             confidence=0.0,
@@ -330,10 +391,13 @@ class GeometricVisionStrategy(IVisionStrategy):
 
         sh, sw = small_screen.shape[:2]
 
-        using_cached_scale = False
-        if self._cache_size_enabled and self._cached_button_scale is not None:
-            scales_to_try = [self._cached_button_scale]
-            using_cached_scale = True
+        if self._cache_size_enabled and self._is_cache_locked and self._cached_button_scale is not None:
+            # Modo Caché Bloqueado O(1): Tras 5 ciclos exitosos, el HUD del navegador está asegurado.
+            scales_to_try: list[float] = [self._cached_button_scale]
+        elif self._cache_size_enabled and self._cached_button_scale is not None:
+            # Modo Calibración Dinámica (Ciclos < 5): Evalúa primero la escala observada más reciente
+            # pero conserva el conjunto de escalas candidatas para adaptarse a cambios en el navegador.
+            scales_to_try = [self._cached_button_scale] + [s for s in self.BUTTON_CANDIDATE_SCALES if s != self._cached_button_scale]
         else:
             scales_to_try = list(self.BUTTON_CANDIDATE_SCALES)
 
@@ -345,91 +409,59 @@ class GeometricVisionStrategy(IVisionStrategy):
         best_scale: float = 1.0
         best_strategy_id: str = "button_detected"
 
-        def _scan_scales(scales: Sequence[float]) -> None:
-            nonlocal best_score, best_loc, best_size, best_scale, best_strategy_id
-            for s in scales:
-                # Para plantillas muy reducidas (s < 0.60), exigimos mayor correlación (>= 0.70) para evitar
-                # que un dial u otros elementos del escenario generen falsos positivos en resoluciones bajas.
-                thresh_for_scale = max(self._button_threshold, 0.70 if s < 0.60 else self._button_threshold)
+        for s in scales_to_try:
+            # Evaluar plantilla CAST! primero en escala de grises (3x más rápido)
+            if s in self._precomputed_cast_gray:
+                stpl_gray = self._precomputed_cast_gray[s]
+                th, tw = stpl_gray.shape[:2]
+                if sw >= tw and sh >= th:
+                    res = cv2.matchTemplate(small_gray, stpl_gray, cv2.TM_CCOEFF_NORMED)
+                    _, mv, _, ml = cv2.minMaxLoc(res)
 
-                candidate_loc = None
-                # Localizar candidato con plantilla CAST! en escala de grises (3x más rápido)
-                if s in self._precomputed_cast_gray:
-                    stpl_gray = self._precomputed_cast_gray[s]
-                    th, tw = stpl_gray.shape[:2]
-                    if sw >= tw and sh >= th:
-                        res = cv2.matchTemplate(small_gray, stpl_gray, cv2.TM_CCOEFF_NORMED)
-                        _, mv, _, ml = cv2.minMaxLoc(res)
-                        if mv >= thresh_for_scale:
-                            candidate_loc = ml
+                    if mv >= self._button_threshold:
+                        # Verificación estricta de color BGR en la región candidata (elimina falsos positivos grises)
+                        candidate_bgr = small_screen[ml[1]:ml[1]+th, ml[0]:ml[0]+tw]
+                        res_bgr = cv2.matchTemplate(candidate_bgr, self._precomputed_cast[s], cv2.TM_CCOEFF_NORMED)
+                        _, mv_bgr, _, _ = cv2.minMaxLoc(res_bgr)
 
-                # Si no se localizó candidato suficiente con CAST!, intentar con REEL! en escala de grises
-                if candidate_loc is None and s in self._precomputed_reel_gray:
-                    stpl_gray = self._precomputed_reel_gray[s]
-                    th, tw = stpl_gray.shape[:2]
-                    if sw >= tw and sh >= th:
-                        res = cv2.matchTemplate(small_gray, stpl_gray, cv2.TM_CCOEFF_NORMED)
-                        _, mv, _, ml = cv2.minMaxLoc(res)
-                        if mv >= thresh_for_scale:
-                            candidate_loc = ml
-
-                # Si se localizó un candidato válido en esta escala, discriminar estrictamente en color BGR
-                if candidate_loc is not None:
-                    cl_x, cl_y = candidate_loc
-                    th, tw = self._precomputed_cast[s].shape[:2]
-                    if cl_y + th <= sh and cl_x + tw <= sw:
-                        candidate_bgr = small_screen[cl_y:cl_y+th, cl_x:cl_x+tw]
-
-                        # Verificación simultánea de color BGR contra ambas plantillas (distinción 100% matemática)
-                        res_c = cv2.matchTemplate(candidate_bgr, self._precomputed_cast[s], cv2.TM_CCOEFF_NORMED)
-                        score_cast = float(cv2.minMaxLoc(res_c)[1])
-
-                        score_reel = 0.0
-                        if s in self._precomputed_reel:
-                            res_r = cv2.matchTemplate(candidate_bgr, self._precomputed_reel[s], cv2.TM_CCOEFF_NORMED)
-                            score_reel = float(cv2.minMaxLoc(res_r)[1])
-
-                        cand_score = max(score_cast, score_reel)
-                        if cand_score > best_score and cand_score >= thresh_for_scale:
-                            best_score = cand_score
-                            best_loc = candidate_loc
+                        if mv_bgr > best_score:
+                            best_score = float(mv_bgr)
+                            best_loc = ml
                             best_size = (tw * 2, th * 2)
                             best_scale = s
-                            best_strategy_id = "cast_button_detected" if score_cast >= score_reel else "reel_button_detected"
+                            best_strategy_id = "cast_button_detected"
 
-                # Salida inmediata si ya se superó el umbral de certeza absoluta (>= 0.92)
-                # (Se utiliza 0.92 debido a que la correlación cruzada CAST vs REEL es de 0.889)
-                if best_score >= 0.92:
-                    break
+            # Evaluar plantilla REEL! primero en escala de grises
+            if s in self._precomputed_reel_gray:
+                stpl_gray = self._precomputed_reel_gray[s]
+                th, tw = stpl_gray.shape[:2]
+                if sw >= tw and sh >= th:
+                    res = cv2.matchTemplate(small_gray, stpl_gray, cv2.TM_CCOEFF_NORMED)
+                    _, mv, _, ml = cv2.minMaxLoc(res)
 
-        _scan_scales(scales_to_try)
+                    if mv >= self._button_threshold:
+                        candidate_bgr = small_screen[ml[1]:ml[1]+th, ml[0]:ml[0]+tw]
+                        res_bgr = cv2.matchTemplate(candidate_bgr, self._precomputed_reel[s], cv2.TM_CCOEFF_NORMED)
+                        _, mv_bgr, _, _ = cv2.minMaxLoc(res_bgr)
 
-        # Fallback dinámico automático:
-        # Durante la fase de calibración (primeros 5 ciclos de pesca completos), si la escala en caché
-        # no arroja coincidencia (ej. el usuario cambió el zoom del navegador en caliente o redimensionó la ventana),
-        # escaneamos de inmediato el resto de la pirámide sin bloquear al bot, y actualizamos dinámicamente las variables de escala en caché.
-        #
-        # Una vez completados los 5 ciclos (_completed_cycles >= 5), el bot asume Modo AFK Consolidado:
-        # las variables de escala quedan consolidadas y se utiliza exclusivamente la escala en caché
-        # para liberar el 100% de CPU en los fotogramas sin botones (anzuelo en el agua).
-        #
-        # !TODO: En una futura versión orientada al fallo, si el usuario altera el zoom en modo AFK,
-        # implementar un watchdog de inactividad que detecte la falta prolongada de eventos y
-        # reactive automáticamente la fase de calibración dinámica con notificación visual en la UI.
-        if using_cached_scale and best_score < self._button_threshold and not self.is_afk_consolidated:
-            fallback_scales = [s for s in self.BUTTON_CANDIDATE_SCALES if s != self._cached_button_scale]
-            _scan_scales(fallback_scales)
+                        if mv_bgr > best_score:
+                            best_score = float(mv_bgr)
+                            best_loc = ml
+                            best_size = (tw * 2, th * 2)
+                            best_scale = s
+                            best_strategy_id = "reel_button_detected"
+
+            # Retorno inmediato si ya se superó el umbral de coincidencia
+            if best_score >= self._button_threshold:
+                break
 
         if best_score >= self._button_threshold:
             if self._cache_size_enabled:
-                if self._cached_button_scale != best_scale:
-                    logger.info(
-                        "[BOTON] Escala actualizada dinámicamente en caché: %.2fx (dimensiones %dx%d). Tipo: %s",
-                        best_scale, best_size[0], best_size[1], best_strategy_id
-                    )
                 self._cached_button_scale = best_scale
                 self._cached_dimensions = best_size
-                self._cached_dial_scale = best_scale
+                if not self._is_cache_locked:
+                    self._scale_observations.append(best_scale)
+                    self._dimension_observations.append(best_size)
 
             full_x = ox + best_loc[0] * 2
             full_y = oy + best_loc[1] * 2
@@ -514,11 +546,9 @@ class GeometricVisionStrategy(IVisionStrategy):
             self._dial_tracking_frames = 0
             return None
 
-        # Verificación estricta adaptativa al zoom: la aguja naranja fija debe estar presente
-        active_scale = self._cached_dial_scale or self._cached_button_scale or 1.0
-        min_needle = max(8, int(18 * (active_scale ** 2)))
+        # Verificación estricta: la aguja naranja fija en las 12 en punto debe estar presente (mínimo 20 px)
         needle_count = self._count_needle_pixels(dial_roi)
-        if needle_count < min_needle:
+        if needle_count < 20:
             # La aguja ha desaparecido (pez pescado o minijuego terminado)
             self._last_dial_roi = None
             self._dial_tracking_frames = 0
@@ -608,17 +638,7 @@ class GeometricVisionStrategy(IVisionStrategy):
             if cv2.countNonZero(mask_tiny) < 15:
                 return None
 
-            # Si aún no tenemos escala de dial memorizada pero sí conocemos la de los botones (mismo lienzo de juego),
-            # heredamos esa escala como candidata inicial para acierto instantáneo en O(1)
-            if self._cached_dial_scale is None and self._cached_button_scale is not None:
-                self._cached_dial_scale = self._cached_button_scale
-
-            using_cached_dial = False
-            if self._cache_size_enabled and self._cached_dial_scale:
-                scales = [self._cached_dial_scale]
-                using_cached_dial = True
-            else:
-                scales = list(self.DIAL_CANDIDATE_SCALES)
+            scales = [self._cached_dial_scale] if (self._cache_size_enabled and self._cached_dial_scale) else list(self.DIAL_CANDIDATE_SCALES)
 
             best_score = 0.0
             best_loc = (0, 0)
@@ -627,42 +647,34 @@ class GeometricVisionStrategy(IVisionStrategy):
 
             has_mask = getattr(self, "_dial_static_mask", None) is not None
 
-            def _scan_dial_scales(target_scales: Sequence[float]) -> None:
-                nonlocal best_score, best_loc, best_size, best_s
-                for s in target_scales:
-                    if s in self._precomputed_dial:
-                        stpl, smask = self._precomputed_dial[s]
-                        th, tw = stpl.shape[:2]
-                        if sw >= tw and sh >= th:
-                            if has_mask and smask is not None:
-                                res = cv2.matchTemplate(small_screen, stpl, cv2.TM_SQDIFF_NORMED, mask=smask)
-                                min_v, _, min_l, _ = cv2.minMaxLoc(res)
-                                score = float(1.0 - min_v)
-                                loc = min_l
-                            else:
-                                res = cv2.matchTemplate(small_screen, stpl, cv2.TM_CCOEFF_NORMED)
-                                _, mv, _, ml = cv2.minMaxLoc(res)
-                                score = float(mv)
-                                loc = ml
+            for s in scales:
+                if s in self._precomputed_dial:
+                    stpl, smask = self._precomputed_dial[s]
+                    th, tw = stpl.shape[:2]
+                    if sw >= tw and sh >= th:
+                        if has_mask and smask is not None:
+                            res = cv2.matchTemplate(small_screen, stpl, cv2.TM_SQDIFF_NORMED, mask=smask)
+                            min_v, _, min_l, _ = cv2.minMaxLoc(res)
+                            score = float(1.0 - min_v)
+                            loc = min_l
+                        else:
+                            res = cv2.matchTemplate(small_screen, stpl, cv2.TM_CCOEFF_NORMED)
+                            _, mv, _, ml = cv2.minMaxLoc(res)
+                            score = float(mv)
+                            loc = ml
 
-                            if score > best_score:
-                                best_score = score
-                                best_loc = loc
-                                best_size = (tw * 2, th * 2)
-                                best_s = s
+                        if score > best_score:
+                            best_score = score
+                            best_loc = loc
+                            best_size = (tw * 2, th * 2)
+                            best_s = s
 
-                            if best_score >= 0.98:
-                                break
-
-            _scan_dial_scales(scales)
+                        if best_score >= 0.98:
+                            break
 
             # Umbral de coincidencia: 0.945 para máscara estática (SQDIFF) o dial_threshold para CCOEFF
             # (El césped uniforme produce correlación de ~0.916, por lo que 0.945 es totalmente inmune a falsos positivos)
             effective_thresh = 0.945 if has_mask else self._dial_threshold
-
-            if using_cached_dial and best_score < effective_thresh and not self.is_afk_consolidated:
-                fallback_dial_scales = [s for s in self.DIAL_CANDIDATE_SCALES if s != self._cached_dial_scale]
-                _scan_dial_scales(fallback_dial_scales)
             if best_score >= effective_thresh:
                 full_x = best_loc[0] * 2
                 full_y = best_loc[1] * 2
@@ -671,9 +683,8 @@ class GeometricVisionStrategy(IVisionStrategy):
                 # Verificación de integridad: el dial debe contener la aguja superior naranja/roja y sectores verdes
                 dial_roi = img_bgr[full_y:full_y+full_h, full_x:full_x+full_w]
                 if dial_roi.size > 0:
-                    min_needle = max(8, int(20 * (best_s ** 2)))
                     needle_count = self._count_needle_pixels(dial_roi)
-                    if needle_count < min_needle:
+                    if needle_count < 25:
                         # Rechazar falsos positivos en césped/fondo
                         return None
 
@@ -818,12 +829,11 @@ class GeometricVisionStrategy(IVisionStrategy):
         white_mask = cv2.inRange(hsv, np.array([0, 0, 225]), np.array([180, 25, 255]))
         contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # Umbrales geométricos invariantes a la escala (soporta desde zoom reducido 0.33x hasta 2.50x)
-        min_area = 2500.0
-        min_dim = 35
-
+        min_area = min(8000.0, float(img_bgr.shape[0] * img_bgr.shape[1] * 0.10))
+        min_dim = min(80, int(min(img_bgr.shape[0], img_bgr.shape[1]) * 0.25))
         for cnt in contours:
             area = cv2.contourArea(cnt)
+            # La tarjeta ocupa una porción representativa (>8000 px o >10% de la zona escaneada)
             if area > min_area:
                 bx, by, bw, bh = cv2.boundingRect(cnt)
 
@@ -832,13 +842,13 @@ class GeometricVisionStrategy(IVisionStrategy):
                     continue
 
                 aspect = bw / float(bh) if bh > 0 else 0.0
-                # Aspect ratio vertical o moderadamente cuadrado (entre 0.55 y 1.25)
-                if 0.55 <= aspect <= 1.25:
+                # Aspect ratio vertical o moderadamente cuadrado (entre 0.55 y 1.20)
+                if 0.55 <= aspect <= 1.20:
                     rect_area = bw * bh
                     solidity = area / float(rect_area) if rect_area > 0 else 0.0
 
-                    # Permite texto y sprite en el centro de la tarjeta (>55% de solidez)
-                    if solidity > 0.55:
+                    # Permite texto y sprite en el centro de la tarjeta (>60% de solidez)
+                    if solidity > 0.60:
                         cx = ox + bx + bw // 2
                         cy = oy + by + bh // 2
 

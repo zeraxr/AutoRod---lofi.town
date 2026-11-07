@@ -32,275 +32,274 @@ class FletSettingsView(ft.Container):
         # ---------------------------------------------------------------------
         self._title_text = ft.Text(
             "Configuración",
-            size=26,
-            weight=ft.FontWeight.W_700,
-            color=self._tokens.text_primary
+            size=29,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary
         )
         self._subtitle_text = ft.Text(
-            "Ajustes del sistema y comportamiento de la aplicación.",
-            size=12,
-            color=self._tokens.text_secondary
+            "Todo listo para tu próxima sesión de pesca.",
+            size=13,
+            weight=ft.FontWeight.NORMAL,
+            color="#a5b4ff" if self._tokens.mode == "dark" else self._tokens.text_secondary
+        )
+
+        # Insignia de estado según Figma 72:4478
+        self._status_dot = ft.Container(width=5, height=5, border_radius=3, bgcolor="#5554d9")
+        self._status_label = ft.Text("Pausado", size=10, color="#a5b4ff")
+        self._status_pill = ft.Container(
+            content=ft.Row(
+                controls=[
+                    self._status_dot,
+                    self._status_label
+                ],
+                spacing=6,
+                alignment=ft.MainAxisAlignment.CENTER
+            ),
+            bgcolor="#141a2a" if self._tokens.mode == "dark" else "#ffffff",
+            border=ft.Border.all(1, "#1b2233" if self._tokens.mode == "dark" else "#e5e7eb"),
+            border_radius=6,
+            padding=ft.Padding.symmetric(horizontal=9, vertical=5)
         )
 
         header = ft.Row(
             controls=[
                 ft.Column(
                     controls=[self._title_text, self._subtitle_text],
-                    spacing=2
+                    spacing=8
                 ),
-                ft.Container(
-                    content=ft.Text(
-                        "CONFIG.TOML",
-                        style=ft.TextStyle(
-                            size=10,
-                            weight=ft.FontWeight.W_700,
-                            color=self._tokens.primary,
-                            letter_spacing=0.5
-                        )
-                    ),
-                    bgcolor=self._tokens.sub_bg,
-                    border=ft.Border.all(1, self._tokens.card_border),
-                    border_radius=6,
-                    padding=ft.Padding.symmetric(horizontal=10, vertical=6)
-                )
+                self._status_pill
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
 
         # ---------------------------------------------------------------------
-        # 1. SECCIÓN: CAPTURA Y PANTALLA (Figma 72:4389)
+        # 1. SECCIÓN: CAPTURA DE PANTALLA (Figma 72:4481)
         # ---------------------------------------------------------------------
         monitor_options = self._detect_monitors()
         self._monitor_dropdown = ft.Dropdown(
             options=monitor_options,
             value=str(self._config.monitor_index),
-            bgcolor=self._tokens.card_bg,
-            border_color=self._tokens.card_border,
+            bgcolor="#141a2a" if self._tokens.mode == "dark" else "#ffffff",
+            border_color="#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb",
             focused_border_color=self._tokens.primary,
             text_size=12,
             content_padding=ft.Padding.symmetric(horizontal=12, vertical=8),
-            expand=True,
+            width=200,
+            height=34,
             on_select=lambda _: self._mark_modified()
         )
 
         self._fps_dropdown = ft.Dropdown(
             options=[
-                ft.DropdownOption("30", "30 FPS (Ahorro de recursos)"),
-                ft.DropdownOption("60", "60 FPS (Recomendado - Fluidez SOTA)"),
-                ft.DropdownOption("120", "120 FPS (Máxima precisión)")
+                ft.DropdownOption("30", "30 FPS"),
+                ft.DropdownOption("60", "60 FPS · recomendado"),
+                ft.DropdownOption("120", "120 FPS")
             ],
             value=str(self._config.target_fps),
-            bgcolor=self._tokens.card_bg,
-            border_color=self._tokens.card_border,
+            bgcolor="#141a2a" if self._tokens.mode == "dark" else "#ffffff",
+            border_color="#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb",
             focused_border_color=self._tokens.primary,
             text_size=12,
             content_padding=ft.Padding.symmetric(horizontal=12, vertical=8),
-            expand=True,
+            width=200,
+            height=34,
             on_select=lambda _: self._mark_modified()
         )
 
         capture_card = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Row(
+                    ft.Column(
                         controls=[
-                            ft.Icon(ft.Icons.DESKTOP_WINDOWS_ROUNDED, size=16, color=self._tokens.primary),
-                            ft.Text("Captura y Pantalla", size=14, weight=ft.FontWeight.W_600, color=self._tokens.text_primary)
+                            ft.Text("Captura de pantalla", size=14, weight=ft.FontWeight.W_600, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                            ft.Text("Elige dónde buscar el objetivo de pesca.", size=11, color="#8f99b3")
                         ],
-                        spacing=8
+                        spacing=5
                     ),
                     ft.Row(
                         controls=[
                             ft.Column(
                                 controls=[
-                                    ft.Text("Pantalla de origen", size=12, weight=ft.FontWeight.W_500, color=self._tokens.text_primary),
-                                    ft.Text("Monitor donde se ejecuta el juego.", size=11, color=self._tokens.text_secondary),
-                                    self._monitor_dropdown
+                                    ft.Text("Pantalla de origen", size=13, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                    ft.Text("1920 × 1080 · pantalla principal", size=11, color="#8f99b3")
                                 ],
-                                spacing=4,
-                                expand=True
+                                spacing=4
                             ),
+                            self._monitor_dropdown
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER
+                    ),
+                    ft.Row(
+                        controls=[
                             ft.Column(
                                 controls=[
-                                    ft.Text("Frecuencia de captura", size=12, weight=ft.FontWeight.W_500, color=self._tokens.text_primary),
-                                    ft.Text("Tasa de fotogramas procesados.", size=11, color=self._tokens.text_secondary),
-                                    self._fps_dropdown
+                                    ft.Text("Frecuencia de captura", size=13, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                    ft.Text("Más FPS ofrecen una detección más fluida.", size=11, color="#8f99b3")
                                 ],
-                                spacing=4,
-                                expand=True
-                            )
+                                spacing=4
+                            ),
+                            self._fps_dropdown
                         ],
-                        spacing=16
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.Icon(ft.Icons.INFO_OUTLINE_ROUNDED, size=13, color="#8f99b3"),
+                            ft.Text("Latencia estimada < 20 ms. La captura se activará al iniciar.", size=11, color="#8f99b3")
+                        ],
+                        spacing=8
                     )
                 ],
                 spacing=12
             ),
-            bgcolor=self._tokens.card_bg,
-            border=ft.Border.all(1, self._tokens.card_border),
+            bgcolor="#0d0f17" if self._tokens.mode == "dark" else "#ffffff",
+            border=ft.Border.all(1, "#1b2233" if self._tokens.mode == "dark" else "#e5e7eb"),
             border_radius=12,
-            padding=16
+            padding=ft.Padding.all(16)
         )
 
         # ---------------------------------------------------------------------
-        # 2. SECCIÓN: COMPORTAMIENTO (Figma 72:4389)
+        # 2. SECCIÓN: COMPORTAMIENTO DE LA APLICACIÓN (Figma 72:4503)
         # ---------------------------------------------------------------------
         self._defocus_switch = ft.Switch(
             value=self._config.pause_on_defocus,
             active_color=self._tokens.primary,
-            scale=0.85,
             on_change=lambda _: self._mark_modified()
         )
         self._tray_switch = ft.Switch(
             value=self._config.minimize_to_tray,
             active_color=self._tokens.primary,
-            scale=0.85,
             on_change=lambda _: self._mark_modified()
         )
         self._startup_switch = ft.Switch(
             value=self._config.open_at_startup,
             active_color=self._tokens.primary,
-            scale=0.85,
             on_change=lambda _: self._mark_modified()
         )
-
-        def _create_switch_row(title: str, subtitle: str, switch_ctrl: ft.Switch) -> ft.Container:
-            return ft.Container(
-                content=ft.Row(
-                    controls=[
-                        ft.Column(
-                            controls=[
-                                ft.Text(title, size=12.5, weight=ft.FontWeight.W_500, color=self._tokens.text_primary),
-                                ft.Text(subtitle, size=11, color=self._tokens.text_secondary)
-                            ],
-                            spacing=2,
-                            expand=True
-                        ),
-                        switch_ctrl
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-                ),
-                padding=ft.Padding.symmetric(vertical=4)
-            )
 
         behavior_card = ft.Container(
             content=ft.Column(
                 controls=[
+                    ft.Text("Comportamiento de la aplicación", size=14, weight=ft.FontWeight.W_600, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
                     ft.Row(
                         controls=[
-                            ft.Icon(ft.Icons.TUNE_ROUNDED, size=16, color=self._tokens.primary),
-                            ft.Text("Comportamiento", size=14, weight=ft.FontWeight.W_600, color=self._tokens.text_primary)
+                            ft.Column(
+                                controls=[
+                                    ft.Text("Pausar al cambiar de ventana", size=13, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                    ft.Text("Evita acciones fuera de la ventana del juego.", size=11, color="#8f99b3")
+                                ],
+                                spacing=4
+                            ),
+                            self._defocus_switch
                         ],
-                        spacing=8
-                    ),
-                    _create_switch_row(
-                        "Pausar al cambiar de ventana",
-                        "Detiene la detección si AutoRod o el juego pierden el foco principal.",
-                        self._defocus_switch
-                    ),
-                    ft.Divider(height=1, color=self._tokens.divider),
-                    _create_switch_row(
-                        "Minimizar a la bandeja del sistema",
-                        "Al minimizar, la aplicación continúa ejecutándose en el área de notificación.",
-                        self._tray_switch
-                    ),
-                    ft.Divider(height=1, color=self._tokens.divider),
-                    _create_switch_row(
-                        "Abrir al iniciar el sistema",
-                        "Inicia AutoRod minimizado automáticamente al encender Windows.",
-                        self._startup_switch
-                    ),
-                ],
-                spacing=8
-            ),
-            bgcolor=self._tokens.card_bg,
-            border=ft.Border.all(1, self._tokens.card_border),
-            border_radius=12,
-            padding=16
-        )
-
-        # ---------------------------------------------------------------------
-        # 3. SECCIÓN: ATAJOS DE TECLADO GLOBALES (Figma 72:4389)
-        # ---------------------------------------------------------------------
-        def _create_shortcut_card(title: str, subtitle: str, key_badge: str) -> ft.Container:
-            return ft.Container(
-                content=ft.Row(
-                    controls=[
-                        ft.Column(
-                            controls=[
-                                ft.Text(title, size=12.5, weight=ft.FontWeight.W_500, color=self._tokens.text_primary),
-                                ft.Text(subtitle, size=11, color=self._tokens.text_secondary)
-                            ],
-                            spacing=2,
-                            expand=True
-                        ),
-                        ft.Container(
-                            content=ft.Text(key_badge, size=11.5, weight=ft.FontWeight.BOLD, color=self._tokens.primary),
-                            bgcolor=self._tokens.sub_bg,
-                            border=ft.Border.all(1, self._tokens.card_border),
-                            border_radius=6,
-                            padding=ft.Padding.symmetric(horizontal=12, vertical=6)
-                        )
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER
-                ),
-                bgcolor=self._tokens.card_bg,
-                border=ft.Border.all(1, self._tokens.card_border),
-                border_radius=10,
-                padding=12,
-                expand=True
-            )
-
-        shortcuts_card = ft.Container(
-            content=ft.Column(
-                controls=[
-                    ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.KEYBOARD_ROUNDED, size=16, color=self._tokens.primary),
-                            ft.Text("Atajos de Teclado Globales", size=14, weight=ft.FontWeight.W_600, color=self._tokens.text_primary)
-                        ],
-                        spacing=8
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                     ),
                     ft.Row(
                         controls=[
-                            _create_shortcut_card("Iniciar / Pausar", "Alterna la sesión activa sin cambiar de ventana.", self._config.shortcut_toggle),
-                            _create_shortcut_card("Detener sesión", "Finaliza la sesión actual y resetea contadores.", self._config.shortcut_stop)
+                            ft.Column(
+                                controls=[
+                                    ft.Text("Minimizar a la bandeja", size=13, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                    ft.Text("AutoRod sigue disponible en segundo plano.", size=11, color="#8f99b3")
+                                ],
+                                spacing=4
+                            ),
+                            self._tray_switch
                         ],
-                        spacing=12
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.Text("Abrir al iniciar el sistema", size=13, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                            self._startup_switch
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
                     )
                 ],
                 spacing=12
             ),
-            bgcolor=self._tokens.card_bg,
-            border=ft.Border.all(1, self._tokens.card_border),
+            bgcolor="#0d0f17" if self._tokens.mode == "dark" else "#ffffff",
+            border=ft.Border.all(1, "#1b2233" if self._tokens.mode == "dark" else "#e5e7eb"),
             border_radius=12,
-            padding=16
+            padding=ft.Padding.all(16)
         )
 
         # ---------------------------------------------------------------------
-        # 4. BOTONES INFERIORES: RESTABLECER Y GUARDAR (Figma 72:4389)
+        # 3. SECCIÓN: ATAJOS GLOBALES (Figma 72:4524)
+        # ---------------------------------------------------------------------
+        shortcuts_card = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Column(
+                        controls=[
+                            ft.Text("Atajos globales", size=14, weight=ft.FontWeight.W_600, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                            ft.Text("Disponibles incluso con AutoRod minimizado.", size=11, color="#8f99b3")
+                        ],
+                        spacing=5
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.Row(
+                                controls=[
+                                    ft.Text("Iniciar / pausar", size=12, color="#8f99b3"),
+                                    ft.Container(
+                                        content=ft.Text("F8", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                        bgcolor="#141a2a" if self._tokens.mode == "dark" else "#f2f3f8",
+                                        border=ft.Border.all(1, "#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb"),
+                                        border_radius=6,
+                                        padding=ft.Padding.symmetric(horizontal=12, vertical=6)
+                                    )
+                                ],
+                                spacing=12,
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                expand=True
+                            ),
+                            ft.Row(
+                                controls=[
+                                    ft.Text("Detener sesión", size=12, color="#8f99b3"),
+                                    ft.Container(
+                                        content=ft.Text("F9", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                        bgcolor="#141a2a" if self._tokens.mode == "dark" else "#f2f3f8",
+                                        border=ft.Border.all(1, "#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb"),
+                                        border_radius=6,
+                                        padding=ft.Padding.symmetric(horizontal=12, vertical=6)
+                                    )
+                                ],
+                                spacing=12,
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                expand=True
+                            )
+                        ],
+                        spacing=24
+                    )
+                ],
+                spacing=12
+            ),
+            bgcolor="#0d0f17" if self._tokens.mode == "dark" else "#ffffff",
+            border=ft.Border.all(1, "#1b2233" if self._tokens.mode == "dark" else "#e5e7eb"),
+            border_radius=12,
+            padding=ft.Padding.all(16)
+        )
+
+        # ---------------------------------------------------------------------
+        # 4. BOTONES INFERIORES: RESTABLECER Y GUARDAR (Figma 72:4538)
         # ---------------------------------------------------------------------
         self._status_feedback = ft.Text(
             "Sin cambios pendientes",
-            size=11.5,
-            color=self._tokens.text_muted
+            size=11,
+            color="#8f99b3"
         )
 
         self._reset_btn = ft.Container(
-            content=ft.Row(
-                controls=[
-                    ft.Icon(ft.Icons.RESTART_ALT_ROUNDED, size=14, color=self._tokens.text_secondary),
-                    ft.Text("Restablecer", size=12, color=self._tokens.text_secondary, weight=ft.FontWeight.W_500)
-                ],
-                spacing=6,
-                alignment=ft.MainAxisAlignment.CENTER
-            ),
-            bgcolor=self._tokens.sub_bg,
-            border=ft.Border.all(1, self._tokens.card_border),
+            content=ft.Text("Restablecer", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary, weight=ft.FontWeight.NORMAL),
+            bgcolor="#141a2a" if self._tokens.mode == "dark" else "#ffffff",
+            border=ft.Border.all(1, "#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb"),
             border_radius=8,
             height=36,
-            padding=ft.Padding.symmetric(horizontal=14),
+            padding=ft.Padding.symmetric(horizontal=13),
+            alignment=ft.Alignment(0, 0),
             on_click=self._on_reset_click,
             ink=True
         )
@@ -308,17 +307,17 @@ class FletSettingsView(ft.Container):
         self._save_btn = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.CHECK_ROUNDED, size=14, color=self._tokens.text_on_primary),
-                    ft.Text("Guardar cambios", size=12, color=self._tokens.text_on_primary, weight=ft.FontWeight.W_600)
+                    ft.Icon(ft.Icons.CHECK, size=14, color="#ffffff"),
+                    ft.Text("Guardar cambios", size=12, color="#ffffff", weight=ft.FontWeight.NORMAL)
                 ],
-                spacing=6,
+                spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor=self._tokens.primary,
-            border=ft.Border.all(1, self._tokens.primary),
+            bgcolor="#5554d9",
+            border=ft.Border.all(1, "#5554d9"),
             border_radius=8,
             height=36,
-            padding=ft.Padding.symmetric(horizontal=16),
+            padding=ft.Padding.symmetric(horizontal=13),
             on_click=self._on_save_click,
             ink=True
         )
@@ -328,7 +327,7 @@ class FletSettingsView(ft.Container):
                 self._status_feedback,
                 ft.Row(
                     controls=[self._reset_btn, self._save_btn],
-                    spacing=8
+                    spacing=10
                 )
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -349,7 +348,7 @@ class FletSettingsView(ft.Container):
 
         super().__init__(
             content=content_column,
-            padding=ft.Padding.all(20),
+            padding=ft.Padding.only(left=32, right=32, top=48, bottom=28),
             bgcolor=self._tokens.canvas_bg,
             border_radius=ft.BorderRadius.only(top_left=16, bottom_left=16),
             expand=True
@@ -401,15 +400,6 @@ class FletSettingsView(ft.Container):
             enable_transition_animations=self._config.enable_transition_animations,
             language=self._config.language,
 
-            profile=self._config.profile,
-            min_confidence=self._config.min_confidence,
-            color_tolerance=self._config.color_tolerance,
-            search_area=self._config.search_area,
-            cast_delay_ms=self._config.cast_delay_ms,
-            max_wait_bite_sec=self._config.max_wait_bite_sec,
-            retry_on_lost=self._config.retry_on_lost,
-            pause_on_consecutive_errors=self._config.pause_on_consecutive_errors,
-
             input_backend=self._config.input_backend,
             vision_strategy=self._config.vision_strategy,
             button_threshold=self._config.button_threshold,
@@ -426,6 +416,18 @@ class FletSettingsView(ft.Container):
         self._status_feedback.value = "Configuración guardada correctamente"
         self._status_feedback.color = "#10b981"
         safe_update(self)
+
+    def set_bot_running(self, running: bool) -> None:
+        """Actualiza el indicador de estado reactivo superior en tiempo real."""
+        if running:
+            self._status_dot.bgcolor = "#10b981"
+            self._status_label.value = "Activo"
+            self._status_label.color = "#10b981"
+        else:
+            self._status_dot.bgcolor = "#5554d9"
+            self._status_label.value = "Pausado"
+            self._status_label.color = "#a5b4ff"
+        safe_update(self._status_pill)
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
         self._tokens = tokens

@@ -1,5 +1,6 @@
 """Vista de Ayuda, Guías y Soporte en Flet (Diseño Oficial Figma 1:1)."""
 
+import platform
 import webbrowser
 from typing import Any
 import flet as ft
@@ -18,227 +19,270 @@ class FletHelpView(ft.Container):
         self._tokens: ThemeTokens = self._theme_mgr.current
 
         # ---------------------------------------------------------------------
-        # 0. HEADER PRINCIPAL (Figma 72:5056)
+        # 0. HEADER PRINCIPAL (Figma 72:5141)
         # ---------------------------------------------------------------------
         self._title_text = ft.Text(
-            "Ayuda y Soporte",
-            size=26,
-            weight=ft.FontWeight.W_700,
-            color=self._tokens.text_primary
+            "Ayuda",
+            size=29,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary
         )
         self._subtitle_text = ft.Text(
-            "Guías de inicio rápido, preguntas frecuentes y soporte comunitario.",
-            size=12,
-            color=self._tokens.text_secondary
+            "Menos dudas, más pesca :3",
+            size=13,
+            weight=ft.FontWeight.NORMAL,
+            color="#a5b4ff" if self._tokens.mode == "dark" else self._tokens.text_secondary
         )
 
-        header = ft.Row(
-            controls=[
-                ft.Column(
-                    controls=[self._title_text, self._subtitle_text],
-                    spacing=2
-                ),
-                ft.Container(
-                    content=ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.HELP_OUTLINE_ROUNDED, size=14, color=self._tokens.primary),
-                            ft.Text("V2.0 OFICIAL", size=10, weight=ft.FontWeight.W_700, color=self._tokens.primary)
-                        ],
-                        spacing=6
-                    ),
-                    bgcolor=self._tokens.sub_bg,
-                    border=ft.Border.all(1, self._tokens.card_border),
-                    border_radius=6,
-                    padding=ft.Padding.symmetric(horizontal=10, vertical=6)
-                )
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER
+        presentation_header = ft.Column(
+            controls=[self._title_text, self._subtitle_text],
+            spacing=8
         )
 
         # ---------------------------------------------------------------------
-        # 1. BARRA DE BÚSQUEDA RÁPIDA (Figma 72:5056)
+        # 1. BARRA DE BÚSQUEDA RÁPIDA (Figma 72:5145)
         # ---------------------------------------------------------------------
         self._search_input = ft.TextField(
-            hint_text="Buscar en las guías y preguntas frecuentes...",
-            hint_style=ft.TextStyle(size=12, color=self._tokens.text_muted),
+            hint_text="Buscar en guías y preguntas frecuentes…",
+            hint_style=ft.TextStyle(size=12, color="#8f99b3" if self._tokens.mode == "dark" else "#9ca3af"),
             text_size=12,
-            border_radius=10,
-            border_color=self._tokens.card_border,
-            focused_border_color=self._tokens.primary,
-            bgcolor=self._tokens.card_bg,
-            color=self._tokens.text_primary,
-            content_padding=ft.Padding.symmetric(horizontal=14, vertical=10),
-            prefix_icon=ft.Icons.SEARCH_ROUNDED,
-            suffix=ft.Container(
-                content=ft.Text("Ctrl + K", size=10, weight=ft.FontWeight.BOLD, color=self._tokens.text_secondary),
-                bgcolor=self._tokens.sub_bg,
-                border=ft.Border.all(1, self._tokens.card_border),
-                border_radius=4,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=2)
-            ),
+            border=None,
+            border_color=ft.Colors.TRANSPARENT,
+            content_padding=ft.Padding.symmetric(horizontal=8, vertical=10),
+            color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary,
             expand=True,
             on_change=self._on_search_query
         )
 
-        search_bar = ft.Container(
-            content=self._search_input,
-            margin=ft.Margin.only(bottom=6)
+        self._search_icon = ft.Icon(ft.Icons.SEARCH_ROUNDED, size=16, color="#8f99b3")
+        self._search_shortcut_badge = ft.Text(
+            "Ctrl + K",
+            size=10,
+            weight=ft.FontWeight.NORMAL,
+            color="#8f99b3"
+        )
+
+        search_bg = "#0d0f17" if self._tokens.mode == "dark" else "#f9fafb"
+        search_border = "#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb"
+        self._search_bar_frame = ft.Container(
+            content=ft.Row(
+                controls=[
+                    self._search_icon,
+                    self._search_input,
+                    self._search_shortcut_badge
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER
+            ),
+            height=42,
+            padding=ft.Padding.symmetric(horizontal=14),
+            border_radius=8,
+            bgcolor=search_bg,
+            border=ft.Border.all(1, search_border)
         )
 
         # ---------------------------------------------------------------------
-        # 2. TU PRIMERA SESIÓN EN 3 PASOS (Figma 72:5056)
+        # 2. TU PRIMERA SESIÓN EN 3 PASOS (Figma 72:5149)
         # ---------------------------------------------------------------------
-        def _create_step_card(step_num: str, title: str, description: str) -> ft.Container:
+        self._steps_title = ft.Text(
+            "Tu primera sesión",
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary
+        )
+        self._steps_subtitle = ft.Text(
+            "Tres pasos para dejar AutoRod preparado.",
+            size=11,
+            color="#8f99b3" if self._tokens.mode == "dark" else "#6b7280"
+        )
+
+        def _create_step(num: str, title: str, desc: str) -> ft.Container:
             return ft.Container(
                 content=ft.Column(
                     controls=[
-                        ft.Text(step_num, size=20, weight=ft.FontWeight.BOLD, color=self._tokens.primary),
-                        ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=self._tokens.text_primary),
-                        ft.Text(description, size=11, color=self._tokens.text_secondary)
+                        ft.Text(num, size=11, weight=ft.FontWeight.W_600, color="#a5b4ff"),
+                        ft.Text(title, size=13, weight=ft.FontWeight.W_600, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                        ft.Text(desc, size=11, color="#8f99b3" if self._tokens.mode == "dark" else "#6b7280")
                     ],
-                    spacing=4
+                    spacing=9
                 ),
-                bgcolor=self._tokens.card_bg,
-                border=ft.Border.all(1, self._tokens.card_border),
-                border_radius=12,
-                padding=14,
                 expand=True
             )
 
+        self._step1 = _create_step("01", "Elige tu pantalla", "Selecciona Monitor 1 en Configuración.")
+        self._step2 = _create_step("02", "Ajusta el objetivo", "Usa el perfil equilibrado en Parámetros.")
+        self._step3 = _create_step("03", "Empieza a pescar", "Abre el juego y pulsa iniciar o F8.")
+
         steps_row = ft.Row(
-            controls=[
-                _create_step_card(
-                    "01",
-                    "Elige tu pantalla",
-                    "Selecciona el monitor donde está abierto el juego en la pestaña Configuración."
-                ),
-                _create_step_card(
-                    "02",
-                    "Ajusta el objetivo",
-                    "Calibra la confianza mínima en Parámetros según la iluminación de tu pantalla."
-                ),
-                _create_step_card(
-                    "03",
-                    "Empieza a pescar",
-                    "Presiona F8 o el botón Iniciar en el panel principal. Usa Q para emergencia."
-                ),
-            ],
-            spacing=12
+            controls=[self._step1, self._step2, self._step3],
+            spacing=20
         )
 
-        steps_section = ft.Column(
-            controls=[
-                ft.Row(
-                    controls=[
-                        ft.Icon(ft.Icons.ROCKET_LAUNCH_ROUNDED, size=16, color=self._tokens.primary),
-                        ft.Text("Tu primera sesión en 3 pasos", size=14, weight=ft.FontWeight.W_600, color=self._tokens.text_primary)
-                    ],
-                    spacing=8
-                ),
-                steps_row
-            ],
-            spacing=10
+        card_bg = "#0d0f17" if self._tokens.mode == "dark" else "#ffffff"
+        card_border = "#1b2233" if self._tokens.mode == "dark" else "#e5e7eb"
+
+        self._steps_card = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Column(
+                        controls=[self._steps_title, self._steps_subtitle],
+                        spacing=5
+                    ),
+                    steps_row
+                ],
+                spacing=12
+            ),
+            bgcolor=card_bg,
+            border=ft.Border.all(1, card_border),
+            border_radius=12,
+            padding=16
         )
 
         # ---------------------------------------------------------------------
-        # 3. PREGUNTAS FRECUENTES (FAQ) (Figma 72:5056)
+        # 3. PREGUNTAS FRECUENTES (FAQ) (Figma 72:5167)
         # ---------------------------------------------------------------------
+        self._faq_title = ft.Text(
+            "Preguntas frecuentes",
+            size=14,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary
+        )
+
         self._faq_data = [
+            (
+                "¿Por qué aparece «Esperando objetivo»?",
+                "La caché se prepara cuando AutoRod detecta el objetivo. Comprueba que el juego esté visible en Monitor 1 y reanuda la sesión. Si no lo encuentra, revisa el área de búsqueda y la confianza mínima en Parámetros."
+            ),
             (
                 "¿Cómo evito que se pause al cambiar de ventana?",
                 "En la pestaña Configuración, desactiva el interruptor 'Pausar al cambiar de ventana'. De este modo, AutoRod continuará pescando de forma autónoma mientras navegas o trabajas en otras aplicaciones."
             ),
             (
-                "¿Por qué no detecta el anzuelo correctamente?",
-                "Verifica que el monitor seleccionado en Configuración coincida con la pantalla del juego. Si hay variaciones de luz o lluvia en el juego, ve a Parámetros y ajusta la 'Tolerancia de color' al 25% o disminuye la 'Confianza mínima' al 75%."
+                "La captura va lenta, ¿qué puedo hacer?",
+                "Asegúrate de ejecutar el juego en modo ventana o sin bordes y comprueba que la frecuencia de captura esté configurada en 60 FPS en Configuración."
             ),
             (
-                "¿Es seguro usar AutoRod en segundo plano?",
-                "Sí, completamente. AutoRod opera mediante captura visual no intrusiva con MSS y emulación de clics del sistema operativo. No inyecta DLLs ni altera la memoria de ningún proceso."
-            ),
-            (
-                "¿Qué atajos de teclado globales existen?",
-                "• F8: Inicia o pausa la sesión activa inmediatamente.\n• F9: Detiene la sesión por completo y resetea estadísticas.\n• Q / Alt+Q: Parada de emergencia instantánea e incondicional a nivel de sistema operativo."
+                "¿Cómo pauso la pesca de inmediato?",
+                "Puedes pulsar el atajo global F8 o Shift + Q en cualquier momento, o hacer clic en el botón pausar en la pantalla de Inicio."
             )
         ]
 
         self._faq_containers: list[ft.Container] = []
-        for q, a in self._faq_data:
-            c = ft.Container(
-                content=ft.Column(
-                    controls=[
-                        ft.Row(
-                            controls=[
-                                ft.Icon(ft.Icons.HELP_OUTLINE_ROUNDED, size=14, color=self._tokens.primary),
-                                ft.Text(q, size=12.5, weight=ft.FontWeight.W_600, color=self._tokens.text_primary, expand=True)
-                            ],
-                            spacing=8
-                        ),
-                        ft.Text(a, size=11.5, color=self._tokens.text_secondary)
-                    ],
-                    spacing=6
-                ),
-                bgcolor=self._tokens.card_bg,
-                border=ft.Border.all(1, self._tokens.card_border),
-                border_radius=10,
-                padding=12
-            )
-            self._faq_containers.append(c)
+        self._faq_expanded_states: list[bool] = [True, False, False, False]
+        self._faq_answer_texts: list[ft.Text] = []
+        self._faq_chevron_icons: list[ft.Icon] = []
 
-        faq_section = ft.Column(
-            controls=[
-                ft.Row(
-                    controls=[
-                        ft.Icon(ft.Icons.QUESTION_ANSWER_ROUNDED, size=16, color=self._tokens.primary),
-                        ft.Text("Preguntas Frecuentes", size=14, weight=ft.FontWeight.W_600, color=self._tokens.text_primary)
-                    ],
-                    spacing=8
-                ),
-                ft.Column(controls=self._faq_containers, spacing=8)
-            ],
-            spacing=10
+        for idx, (q, a) in enumerate(self._faq_data):
+            is_expanded = self._faq_expanded_states[idx]
+
+            chevron = ft.Icon(
+                ft.Icons.KEYBOARD_ARROW_UP_ROUNDED if is_expanded else ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED,
+                size=16,
+                color="#8f99b3"
+            )
+            self._faq_chevron_icons.append(chevron)
+
+            q_text = ft.Text(
+                q,
+                size=13 if idx == 0 else 12,
+                weight=ft.FontWeight.NORMAL,
+                color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary,
+                expand=True
+            )
+
+            a_text = ft.Text(
+                a,
+                size=12,
+                color="#8f99b3" if self._tokens.mode == "dark" else "#6b7280",
+                visible=is_expanded
+            )
+            self._faq_answer_texts.append(a_text)
+
+            q_row = ft.Row(
+                controls=[q_text, chevron],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER
+            )
+
+            item_col = ft.Column(
+                controls=[q_row, a_text],
+                spacing=8
+            )
+
+            border_top = None if idx == 0 else ft.Border(top=ft.BorderSide(1, card_border))
+            pt = 0 if idx == 0 else 12
+
+            item_container = ft.Container(
+                content=item_col,
+                border=border_top,
+                padding=ft.Padding.only(top=pt),
+                on_click=lambda e, i=idx: self._toggle_faq(i)
+            )
+            self._faq_containers.append(item_container)
+
+        self._faq_card = ft.Container(
+            content=ft.Column(
+                controls=[
+                    self._faq_title,
+                    ft.Column(controls=self._faq_containers, spacing=9)
+                ],
+                spacing=12
+            ),
+            bgcolor=card_bg,
+            border=ft.Border.all(1, card_border),
+            border_radius=12,
+            padding=16
         )
 
         # ---------------------------------------------------------------------
-        # 4. COMUNIDAD Y SOPORTE OFICIAL (Figma 72:5056)
+        # 4. SOPORTE (Figma 72:5182)
         # ---------------------------------------------------------------------
+        support_bg = "#141a2a" if self._tokens.mode == "dark" else "#f8fafc"
+        support_border = "#1b2233" if self._tokens.mode == "dark" else "#e5e7eb"
+
+        self._support_icon = ft.Icon(ft.Icons.QUESTION_ANSWER_ROUNDED, size=22, color="#a5b4ff" if self._tokens.mode == "dark" else "#5554d9")
+        self._support_title = ft.Text(
+            "¿Necesitas una mano?",
+            size=13,
+            weight=ft.FontWeight.W_600,
+            color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary
+        )
+        self._support_desc = ft.Text(
+            "Comparte tu registro con la comunidad en Discord.",
+            size=11,
+            color="#8f99b3" if self._tokens.mode == "dark" else "#6b7280"
+        )
+
         self._discord_btn = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Icon(ft.Icons.FORUM_ROUNDED, size=14, color=self._tokens.text_on_primary),
-                    ft.Text("Unirse a Discord", size=12, color=self._tokens.text_on_primary, weight=ft.FontWeight.W_600)
+                    ft.Icon(ft.Icons.NORTH_EAST_ROUNDED, size=14, color="#ffffff"),
+                    ft.Text("Abrir Discord", size=12, color="#ffffff", weight=ft.FontWeight.NORMAL)
                 ],
-                spacing=6,
+                spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor=self._tokens.primary,
+            bgcolor="#5554d9",
             border_radius=8,
             height=36,
-            padding=ft.Padding.symmetric(horizontal=16),
-            on_click=lambda _: webbrowser.open("https://discord.gg/autorod"),
+            padding=ft.Padding.symmetric(horizontal=13),
+            on_click=lambda _: self._open_discord(),
             ink=True
         )
 
-        support_card = ft.Container(
+        self._support_card = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Column(
+                    ft.Row(
                         controls=[
-                            ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.DISCORD_ROUNDED if hasattr(ft.Icons, "DISCORD_ROUNDED") else ft.Icons.FORUM_ROUNDED, size=18, color=self._tokens.primary),
-                                    ft.Text("Comunidad y Soporte Oficial", size=14, weight=ft.FontWeight.W_600, color=self._tokens.text_primary)
-                                ],
-                                spacing=8
-                            ),
-                            ft.Text(
-                                "¿Tienes dudas, sugerencias o necesitas perfiles para otros juegos? Únete a nuestra comunidad oficial.",
-                                size=11.5,
-                                color=self._tokens.text_secondary
+                            self._support_icon,
+                            ft.Column(
+                                controls=[self._support_title, self._support_desc],
+                                spacing=5
                             )
                         ],
-                        spacing=4,
+                        spacing=16,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         expand=True
                     ),
                     self._discord_btn
@@ -246,31 +290,66 @@ class FletHelpView(ft.Container):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER
             ),
-            bgcolor=self._tokens.card_bg,
-            border=ft.Border.all(1, self._tokens.card_border),
+            bgcolor=support_bg,
+            border=ft.Border.all(1, support_border),
             border_radius=12,
             padding=16
         )
 
         # ---------------------------------------------------------------------
-        # 5. FOOTER
+        # 5. FOOTER RECURSOS (Figma 72:5190)
         # ---------------------------------------------------------------------
-        footer = ft.Row(
-            controls=[
-                ft.Text("AutoRod v2.0-SOTA · Documentación y Guías", size=11, color=self._tokens.text_muted),
-                ft.Text("Licencia Abierta MIT", size=11, color=self._tokens.text_muted)
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+        self._footer_guide_text = ft.Text(
+            "AutoRod · Guía de la aplicación",
+            size=10,
+            color="#8f99b3" if self._tokens.mode == "dark" else "#9ca3af"
         )
 
+        self._diag_link_text = ft.Text(
+            "Copiar diagnóstico",
+            size=11,
+            color="#a5b4ff" if self._tokens.mode == "dark" else "#4f46e5"
+        )
+        self._copy_diag_btn = ft.Container(
+            content=self._diag_link_text,
+            on_click=lambda _: self._copy_diagnostics(),
+            tooltip="Copiar información de diagnóstico al portapapeles"
+        )
+
+        self._release_link_text = ft.Text(
+            "Ver novedades ↗",
+            size=11,
+            color="#a5b4ff" if self._tokens.mode == "dark" else "#4f46e5"
+        )
+        self._release_btn = ft.Container(
+            content=self._release_link_text,
+            on_click=lambda _: webbrowser.open("https://github.com/autorod/autorod/releases"),
+            tooltip="Ver últimas notas de lanzamiento"
+        )
+
+        footer_row = ft.Row(
+            controls=[
+                self._footer_guide_text,
+                ft.Row(
+                    controls=[self._copy_diag_btn, self._release_btn],
+                    spacing=20
+                )
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER
+        )
+
+        # ---------------------------------------------------------------------
+        # LAYOUT GENERAL (Figma 72:5140)
+        # ---------------------------------------------------------------------
         content_column = ft.Column(
             controls=[
-                header,
-                search_bar,
-                steps_section,
-                faq_section,
-                support_card,
-                footer
+                presentation_header,
+                self._search_bar_frame,
+                self._steps_card,
+                self._faq_card,
+                self._support_card,
+                footer_row
             ],
             spacing=16,
             scroll=ft.ScrollMode.ADAPTIVE
@@ -278,26 +357,76 @@ class FletHelpView(ft.Container):
 
         super().__init__(
             content=content_column,
-            padding=ft.Padding.all(20),
+            padding=ft.Padding.only(left=32, right=32, top=48, bottom=28),
             bgcolor=self._tokens.canvas_bg,
             border_radius=ft.BorderRadius.only(top_left=16, bottom_left=16),
             expand=True
         )
+
+        self._theme_mgr.subscribe(self._on_theme_updated)
+
+    def _toggle_faq(self, idx: int) -> None:
+        self._faq_expanded_states[idx] = not self._faq_expanded_states[idx]
+        is_open = self._faq_expanded_states[idx]
+        self._faq_answer_texts[idx].visible = is_open
+        self._faq_chevron_icons[idx].name = ft.Icons.KEYBOARD_ARROW_UP_ROUNDED if is_open else ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED
+        safe_update(self._faq_containers[idx])
+
+    def _open_discord(self) -> None:
+        try:
+            webbrowser.open("https://discord.gg/autorod")
+        except Exception:
+            pass
+
+    def _copy_diagnostics(self) -> None:
+        from autorod.infrastructure.updater.github_checker import CURRENT_VERSION
+        diag = f"AutoRod v{CURRENT_VERSION} | OS: {platform.system()} {platform.release()} | Python: {platform.python_version()}"
+        if self.page:
+            try:
+                self.page.set_clipboard(diag)
+            except Exception:
+                pass
+        self._diag_link_text.value = "¡Diagnóstico copiado!"
+        safe_update(self._diag_link_text)
 
     def _on_search_query(self, e: Any) -> None:
         q = (self._search_input.value or "").strip().lower()
         for idx, (question, answer) in enumerate(self._faq_data):
             matched = (q in question.lower()) or (q in answer.lower()) or (q == "")
             self._faq_containers[idx].visible = matched
-        safe_update(self)
+        safe_update(self._faq_card)
+
+    def _on_theme_updated(self, tokens: ThemeTokens) -> None:
+        self.apply_theme(tokens)
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
         self._tokens = tokens
         self.bgcolor = tokens.canvas_bg
-        self._title_text.color = tokens.text_primary
-        self._subtitle_text.color = tokens.text_secondary
-        self._search_input.bgcolor = tokens.card_bg
-        self._search_input.border_color = tokens.card_border
-        self._search_input.color = tokens.text_primary
-        self._discord_btn.bgcolor = tokens.primary
+        is_dark = tokens.mode == "dark"
+
+        self._title_text.color = "#ffffff" if is_dark else tokens.text_primary
+        self._subtitle_text.color = "#a5b4ff" if is_dark else tokens.text_secondary
+
+        self._search_bar_frame.bgcolor = "#0d0f17" if is_dark else "#f9fafb"
+        self._search_bar_frame.border = ft.Border.all(1, "#2a2f3a" if is_dark else "#e5e7eb")
+        self._search_input.color = "#ffffff" if is_dark else tokens.text_primary
+
+        card_bg = "#0d0f17" if is_dark else "#ffffff"
+        card_border = "#1b2233" if is_dark else "#e5e7eb"
+
+        self._steps_card.bgcolor = card_bg
+        self._steps_card.border = ft.Border.all(1, card_border)
+        self._steps_title.color = "#ffffff" if is_dark else tokens.text_primary
+
+        self._faq_card.bgcolor = card_bg
+        self._faq_card.border = ft.Border.all(1, card_border)
+        self._faq_title.color = "#ffffff" if is_dark else tokens.text_primary
+
+        support_bg = "#141a2a" if is_dark else "#f8fafc"
+        support_border = "#1b2233" if is_dark else "#e5e7eb"
+        self._support_card.bgcolor = support_bg
+        self._support_card.border = ft.Border.all(1, support_border)
+        self._support_title.color = "#ffffff" if is_dark else tokens.text_primary
+
+        self._discord_btn.bgcolor = "#5554d9"
         safe_update(self)

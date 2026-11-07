@@ -11,8 +11,8 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "2.0.0"
-REPO_SLUG = "zeraxr/AutoRod"
+CURRENT_VERSION = "2.1.0"
+REPO_SLUG = "zeraxr/AutoRod---lofi.town"
 
 
 @dataclass(frozen=True, slots=True)
