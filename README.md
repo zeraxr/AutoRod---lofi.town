@@ -25,11 +25,10 @@ Bot de pesca para [lofi.town](https://lofi.town/) usando visión por computadora
 * **Preview window:** Shows what the bot sees and where it is clicking in real time.
 * **Emergency stop & shortcuts:** Press `Shift+Q` to toggle pause, or `Alt+Q` (Left Alt + Q) for emergency shutdown. *(Note: F8/F9 keys are reserved for future releases)*.
 
-### ⚠️ Browser Compatibility (Opera GX Warning)
+### ⚠️ Browser Compatibility (Opera GX)
 > [!WARNING]
-> **AutoRod does not work properly with Opera GX.**
-> Opera GX aggressively throttles and limits CPU resources (via its built-in CPU/RAM limiters and background tab throttling), which starves the computer vision pipeline required for real-time target recognition and minigame detection.
-> **Recommendation:** Please play the game on **Google Chrome, Brave, Mozilla Firefox, or Microsoft Edge** for smooth, accurate performance.
+> **AutoRod does not work well with Opera GX.**
+> Opera GX limits CPU resources (via its built-in CPU/RAM limiters), which are needed to run the bot's visual recognition.
 
 ### Download
 Grab the latest release from the **[Releases](../../releases)** tab:
@@ -75,11 +74,10 @@ python -m unittest discover -s tests
 * **Visor en vivo:** Muestra en tiempo real qué está detectando el bot en pantalla.
 * **Freno de emergencia y atajos:** Presiona `Shift+Q` para pausar/reanudar, o `Alt+Q` (Left Alt + Q) para cierre de emergencia. *(Nota: Las teclas F8/F9 están reservadas para futuras versiones)*.
 
-### ⚠️ Compatibilidad de Navegadores (Aviso sobre Opera GX)
+### ⚠️ Compatibilidad de Navegadores (Opera GX)
 > [!WARNING]
-> **AutoRod no funciona adecuadamente con el navegador Opera GX.**
-> Opera GX limita drásticamente los recursos de CPU del sistema (a través de sus limitadores nativos de CPU/RAM y estrangulamiento de pestañas en segundo plano), los cuales son estrictamente necesarios para ejecutar el reconocimiento visual del bot en tiempo real.
-> **Recomendación:** Se aconseja jugar en **Google Chrome, Brave, Mozilla Firefox o Microsoft Edge** para garantizar una detección fluida, rápida y precisa del minijuego.
+> **AutoRod no funciona bien con el navegador Opera GX.**
+> Opera GX limita los recursos de CPU (a través de sus limitadores de CPU/RAM), los cuales son necesarios para ejecutar el reconocimiento del bot.
 
 ### Descarga
 Descarga la versión más reciente en la pestaña de **[Releases](../../releases)**:

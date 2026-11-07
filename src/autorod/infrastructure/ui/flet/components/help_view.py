@@ -159,7 +159,7 @@ class FletHelpView(ft.Container):
             ),
             (
                 "La captura va lenta, ¿qué puedo hacer?",
-                "Asegúrate de ejecutar el juego en modo ventana o sin bordes y comprueba los FPS en Configuración. Nota importante: Evita usar Opera GX, ya que limita drásticamente los recursos de CPU necesarios para el reconocimiento del bot; recomendamos Chrome, Brave, Firefox o Edge."
+                "Asegúrate de ejecutar el juego en modo ventana o sin bordes y comprueba los FPS en Configuración. Nota: Opera GX no funciona bien porque limita los recursos de CPU necesarios para el reconocimiento del bot."
             ),
             (
                 "¿Cómo pauso la pesca de inmediato?",
