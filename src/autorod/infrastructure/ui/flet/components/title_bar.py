@@ -1,10 +1,11 @@
 """Barra de título personalizada (Custom Titlebar) sin marco con controles nativos y botón de actualización."""
+from __future__ import annotations
 
 import webbrowser
 from pathlib import Path
 import flet as ft
 from typing import Callable, Any
-from autorod.infrastructure.ui.flet.theme import ThemeManager
+from autorod.infrastructure.ui.flet.theme import ThemeManager, ThemeTokens
 from autorod.infrastructure.updater.github_checker import UpdateInfo
 from autorod.infrastructure.ui.flet.utils import get_asset_path
 
