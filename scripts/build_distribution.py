@@ -118,7 +118,18 @@ def run_nuitka() -> bool:
 
     try:
         subprocess.run(cmd, cwd=str(ROOT_DIR), env=env, check=True)
-        exe_path = DIST_DIR / APP_NAME / f"{APP_NAME}.exe"
+
+        target_dir = DIST_DIR / APP_NAME
+        # Nuitka genera por defecto carpetas terminadas en .dist para compilaciones standalone
+        for candidate_name in [f"{APP_NAME}.dist", "main.dist"]:
+            candidate = DIST_DIR / candidate_name
+            if candidate.is_dir():
+                if target_dir.exists():
+                    shutil.rmtree(target_dir, ignore_errors=True)
+                candidate.rename(target_dir)
+                break
+
+        exe_path = target_dir / f"{APP_NAME}.exe"
         if not exe_path.is_file():
             print(f"[ERROR] No se encontro el ejecutable generado en {exe_path}")
             return False

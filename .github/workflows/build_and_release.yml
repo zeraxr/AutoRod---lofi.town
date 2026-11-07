@@ -42,6 +42,15 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
 
+      - name: Cache Nuitka Compilation
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\Nuitka\Nuitka\Cache
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-nuitka-
+
       - name: Build Distribution Packages (Portable Zip and Checksums)
         shell: cmd
         env:
