@@ -262,7 +262,7 @@ class FletHelpView(ft.Container):
                 spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor="#5554d9",
+            bgcolor=self._tokens.primary,
             border_radius=8,
             height=36,
             padding=ft.Padding.symmetric(horizontal=13),
@@ -428,5 +428,5 @@ class FletHelpView(ft.Container):
         self._support_card.border = ft.Border.all(1, support_border)
         self._support_title.color = "#ffffff" if is_dark else tokens.text_primary
 
-        self._discord_btn.bgcolor = "#5554d9"
+        self._discord_btn.bgcolor = tokens.primary
         safe_update(self)

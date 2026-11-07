@@ -17,6 +17,51 @@ class AutoFlushFileHandler(logging.FileHandler):
         self.flush()
 
 
+def get_system_hardware_summary() -> list[str]:
+    """Recopila telemetría de hardware, memoria y pantalla para diagnóstico forense."""
+    lines: list[str] = []
+    try:
+        import platform
+        lines.append(f"OS: {platform.platform()} ({platform.machine()})")
+        cpu_name = platform.processor() or "Generico"
+        lines.append(f"CPU: {cpu_name} ({os.cpu_count() or 1} hilos logicos)")
+    except Exception:
+        pass
+
+    try:
+        import ctypes
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+        mem = MEMORYSTATUSEX()
+        mem.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
+        total_gb = mem.ullTotalPhys / (1024**3)
+        avail_gb = mem.ullAvailPhys / (1024**3)
+        lines.append(f"RAM: {total_gb:.1f} GB total ({avail_gb:.1f} GB libres, carga {mem.dwMemoryLoad}%)")
+    except Exception:
+        pass
+
+    try:
+        import ctypes
+        dpi = ctypes.windll.user32.GetDpiForSystem()
+        scaling = int(round((dpi / 96.0) * 100))
+        lines.append(f"Pantalla: DPI={dpi} ({scaling}% escala de Windows)")
+    except Exception:
+        pass
+
+    return lines
+
+
 def configure_sota_logging(
     log_file_path: str | Path = "logs/autorod.log",
     log_level: int = logging.INFO
@@ -59,13 +104,18 @@ def configure_sota_logging(
     file_handler.setFormatter(formatter)
     file_handler.setLevel(log_level)
 
-    # 4. Escribir cabecera visual de sesión limpia en el stream del archivo
+    # 4. Escribir cabecera visual de sesión limpia en el stream del archivo con huella de hardware
     sep = "=" * 80
+    hw_info = get_system_hardware_summary()
+    hw_block = "\n".join(f"Hardware: {item}" for item in hw_info)
+    if hw_block:
+        hw_block = f"{hw_block}\n"
     header = (
         f"{sep}\n"
         f"AutoRod - Sesión de Ejecución\n"
         f"Fecha y Hora de Inicio: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Python: {sys.version.split()[0]} | Plataforma: {sys.platform}\n"
+        f"{hw_block}"
         f"UI Engine: Flet Desktop (Flutter Engine para Python)\n"
         f"{sep}\n"
     )

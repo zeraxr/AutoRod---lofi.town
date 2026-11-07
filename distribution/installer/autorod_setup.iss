@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "AutoRod"
-#define MyAppVersion "2.1.0"
+#define MyAppVersion "2.2.0"
 #define MyAppPublisher "AutoRod Open Source Project"
 #define MyAppURL "https://github.com/zeraxr/AutoRod"
 #define MyAppExeName "AutoRod.exe"

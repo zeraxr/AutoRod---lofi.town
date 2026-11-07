@@ -97,7 +97,11 @@ class FletMainApp:
         self.config_path = config_path
 
         # 1. Gestor de Temas
-        self.theme_mgr = ThemeManager.get_instance(self.config_data.ui_theme)
+        self.theme_mgr = ThemeManager.get_instance(
+            initial_theme=self.config_data.ui_theme,
+            mode=self.config_data.theme_mode,
+            accent=self.config_data.accent_color
+        )
         self.theme_mgr.subscribe(self._on_theme_changed)
 
         # 2. Identidad de Proceso en Windows Shell
@@ -146,6 +150,18 @@ class FletMainApp:
             opacity=self.config_data.ui_transparency
         )
         FletWindowFX.enable_background_execution()
+
+        tokens = self.theme_mgr.current
+        page.theme = ft.Theme(
+            color_scheme_seed=tokens.primary,
+            use_material3=True,
+            switch_theme=ft.SwitchTheme(
+                thumb_color={ft.ControlState.SELECTED: "#ffffff", ft.ControlState.DEFAULT: "#8f99b3" if tokens.mode == "dark" else "#9ca3af"},
+                track_color={ft.ControlState.SELECTED: tokens.primary, ft.ControlState.DEFAULT: "#1e2433" if tokens.mode == "dark" else "#e5e7eb"},
+                track_outline_color={ft.ControlState.SELECTED: tokens.primary, ft.ControlState.DEFAULT: "#2a3347" if tokens.mode == "dark" else "#d1d5db"},
+            )
+        )
+        page.dark_theme = page.theme
 
         if hasattr(page, "window"):
             page.window.on_event = self._on_window_event
@@ -251,7 +267,7 @@ class FletMainApp:
         enable_anim = self.config_data.enable_transition_animations
         self._view_switcher = ft.AnimatedSwitcher(
             content=self.viewport,
-            transition=ft.AnimatedSwitcherTransition.FADE if enable_anim else ft.AnimatedSwitcherTransition.NONE,
+            transition=ft.AnimatedSwitcherTransition.FADE,
             duration=240 if enable_anim else 0,
             reverse_duration=180 if enable_anim else 0,
             switch_in_curve=ft.AnimationCurve.EASE_OUT_CUBIC,
@@ -342,6 +358,16 @@ class FletMainApp:
             self.help_view.apply_theme(tokens)
         if self.page:
             self.page.bgcolor = tokens.shell_bg
+            self.page.theme = ft.Theme(
+                color_scheme_seed=tokens.primary,
+                use_material3=True,
+                switch_theme=ft.SwitchTheme(
+                    thumb_color={ft.ControlState.SELECTED: "#ffffff", ft.ControlState.DEFAULT: "#8f99b3" if tokens.mode == "dark" else "#9ca3af"},
+                    track_color={ft.ControlState.SELECTED: tokens.primary, ft.ControlState.DEFAULT: "#1e2433" if tokens.mode == "dark" else "#e5e7eb"},
+                    track_outline_color={ft.ControlState.SELECTED: tokens.primary, ft.ControlState.DEFAULT: "#2a3347" if tokens.mode == "dark" else "#d1d5db"},
+                )
+            )
+            self.page.dark_theme = self.page.theme
             safe_page_update(self.page)
 
     def _on_preferences_changed(self, updated: Any) -> None:
@@ -394,7 +420,7 @@ class FletMainApp:
             else:
                 self._view_switcher.duration = 0
                 self._view_switcher.reverse_duration = 0
-                self._view_switcher.transition = ft.AnimatedSwitcherTransition.NONE
+                self._view_switcher.transition = ft.AnimatedSwitcherTransition.FADE
 
         if self.page:
             safe_page_update(self.page)

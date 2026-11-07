@@ -169,13 +169,42 @@ def create_theme_tokens(
 
 # Diccionario de presets para retrocompatibilidad total con la suite de pruebas existente
 THEME_PRESETS: dict[str, ThemeTokens] = {
-    "default": create_theme_tokens("dark", "#3ecf8e", "default", "Por defecto (Supabase)"),
+    "default": create_theme_tokens("dark", "#7372ea", "default", "Por defecto (Tokyo Night)"),
     "white": create_theme_tokens("light", "#ffffff", "white", "Blanco (Modo Claro)"),
     "red": create_theme_tokens("dark", "#ef4444", "red", "Rojo (Cyberpunk)"),
     "github_green": create_theme_tokens("dark", "#2ea043", "github_green", "Verde GitHub"),
     "purple": create_theme_tokens("dark", "#7372ea", "purple", "Morado (Tokyo Night)"),
     "cyan": create_theme_tokens("dark", "#38bdf8", "cyan", "Celeste Neón"),
 }
+
+
+def apply_switch_theme(switch: Any, accent_color: str, is_dark: bool = True) -> None:
+    """
+    Aplica rigurosamente los tokens de color de acento y alto contraste a un interruptor ft.Switch.
+    Garantiza que el carril activo (ON) y el thumb adopten el color de personalización
+    y previene que Flutter Material 3 sangre colores verdes/teal predeterminados.
+    """
+    import flet as ft
+    track_default = "#1e2433" if is_dark else "#e5e7eb"
+    thumb_default = "#8f99b3" if is_dark else "#9ca3af"
+    outline_default = "#2a3347" if is_dark else "#d1d5db"
+
+    switch.active_color = "#ffffff"
+    switch.active_track_color = accent_color
+    switch.inactive_thumb_color = thumb_default
+    switch.inactive_track_color = track_default
+    switch.track_color = {
+        ft.ControlState.SELECTED: accent_color,
+        ft.ControlState.DEFAULT: track_default,
+    }
+    switch.thumb_color = {
+        ft.ControlState.SELECTED: "#ffffff",
+        ft.ControlState.DEFAULT: thumb_default,
+    }
+    switch.track_outline_color = {
+        ft.ControlState.SELECTED: accent_color,
+        ft.ControlState.DEFAULT: outline_default,
+    }
 
 
 class ThemeManager:
@@ -186,23 +215,37 @@ class ThemeManager:
     def __init__(self, initial_theme: str = "default", mode: str = "dark", accent: str = DEFAULT_ACCENT) -> None:
         self._mode = mode
         self._accent = accent
-        if initial_theme in THEME_PRESETS:
+        if initial_theme in THEME_PRESETS and initial_theme != "default":
             self._current_tokens = THEME_PRESETS[initial_theme]
             self._current_theme_id = initial_theme
             self._mode = self._current_tokens.mode
             self._accent = self._current_tokens.primary
         else:
-            self._current_tokens = create_theme_tokens(self._mode, self._accent)
+            self._current_tokens = create_theme_tokens(self._mode, self._accent, theme_id="default")
             self._current_theme_id = "default"
 
         self._listeners: list[Callable[[ThemeTokens], None]] = []
 
     @classmethod
-    def get_instance(cls, initial_theme: str | None = None) -> "ThemeManager":
+    def get_instance(
+        cls,
+        initial_theme: str | None = None,
+        mode: str | None = None,
+        accent: str | None = None
+    ) -> "ThemeManager":
         if cls._instance is None:
-            cls._instance = cls(initial_theme or "default")
-        elif initial_theme is not None and initial_theme in THEME_PRESETS:
-            cls._instance.set_theme(initial_theme)
+            cls._instance = cls(
+                initial_theme=initial_theme or "default",
+                mode=mode or "dark",
+                accent=accent or DEFAULT_ACCENT
+            )
+        else:
+            if mode is not None and mode != cls._instance._mode:
+                cls._instance.set_theme_mode(mode)
+            if accent is not None and accent.lower() != cls._instance._accent.lower():
+                cls._instance.set_accent_color(accent)
+            elif initial_theme is not None and initial_theme != "default" and initial_theme in THEME_PRESETS:
+                cls._instance.set_theme(initial_theme)
         return cls._instance
 
     @property

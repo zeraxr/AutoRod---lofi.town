@@ -7,7 +7,8 @@ from autorod.infrastructure.ui.flet.theme import (
     ThemeTokens,
     FIGMA_ACCENT_COLORS,
     DEFAULT_ACCENT,
-    ThemeMode
+    ThemeMode,
+    apply_switch_theme
 )
 from autorod.config import AppConfig, save_config
 from autorod.infrastructure.ui.flet.utils import safe_update
@@ -324,19 +325,18 @@ class FletThemeStudioView(ft.Container):
         # ---------------------------------------------------------------------
         self._switch_saludos = ft.Switch(
             value=getattr(self._config, "show_greetings", True),
-            active_color=self._tokens.primary,
             on_change=self._on_behavior_toggled
         )
         self._switch_hora = ft.Switch(
             value=getattr(self._config, "use_local_time", True),
-            active_color=self._tokens.primary,
             on_change=self._on_behavior_toggled
         )
         self._switch_lite = ft.Switch(
             value=not getattr(self._config, "enable_transition_animations", True),
-            active_color=self._tokens.primary,
             on_change=self._on_lite_toggled
         )
+        for sw in (self._switch_saludos, self._switch_hora, self._switch_lite):
+            apply_switch_theme(sw, self._tokens.primary, self._tokens.mode == "dark")
 
         # Aliases y compatibilidad de labels para suite de pruebas
         self._chk_saludos = ft.Checkbox(label="saludos", value=self._switch_saludos.value, visible=False)
@@ -348,10 +348,11 @@ class FletThemeStudioView(ft.Container):
 
         # Selector de idioma estilo píldora Figma (Español / English)
         self._current_lang = getattr(self._config, "language", "es")
+        accent = self._tokens.primary
         self._btn_lang_es = ft.Container(
             content=ft.Text("Español", size=12, weight=ft.FontWeight.W_600 if self._current_lang == "es" else ft.FontWeight.NORMAL, color="#ffffff" if self._current_lang == "es" else "#8f99b3"),
-            bgcolor="#5554d9" if self._current_lang == "es" else "#141a2a",
-            border=ft.Border.all(1, "#5554d9" if self._current_lang == "es" else "#2a2f3a"),
+            bgcolor=accent if self._current_lang == "es" else "#141a2a",
+            border=ft.Border.all(1, accent if self._current_lang == "es" else "#2a2f3a"),
             border_radius=8,
             height=28,
             padding=ft.Padding.symmetric(horizontal=10, vertical=4),
@@ -360,8 +361,8 @@ class FletThemeStudioView(ft.Container):
         )
         self._btn_lang_en = ft.Container(
             content=ft.Text("English", size=12, weight=ft.FontWeight.W_600 if self._current_lang == "en" else ft.FontWeight.NORMAL, color="#ffffff" if self._current_lang == "en" else "#8f99b3"),
-            bgcolor="#5554d9" if self._current_lang == "en" else "#141a2a",
-            border=ft.Border.all(1, "#5554d9" if self._current_lang == "en" else "#2a2f3a"),
+            bgcolor=accent if self._current_lang == "en" else "#141a2a",
+            border=ft.Border.all(1, accent if self._current_lang == "en" else "#2a2f3a"),
             border_radius=8,
             height=28,
             padding=ft.Padding.symmetric(horizontal=10, vertical=4),
@@ -469,8 +470,8 @@ class FletThemeStudioView(ft.Container):
                 spacing=8,
                 alignment=ft.MainAxisAlignment.CENTER
             ),
-            bgcolor="#5554d9",
-            border=ft.Border.all(1, "#5554d9"),
+            bgcolor=self._tokens.primary,
+            border=ft.Border.all(1, self._tokens.primary),
             border_radius=8,
             height=36,
             padding=ft.Padding.symmetric(horizontal=13),
@@ -535,10 +536,21 @@ class FletThemeStudioView(ft.Container):
         self._active_accent = hex_code
         self._theme_mgr.set_accent_color(hex_code)
         self._tokens = self._theme_mgr.current
+        is_dark = self._tokens.mode == "dark"
         for h, ring in self._swatch_containers.items():
             active = (h.lower() == hex_code.lower())
             ring.border = ft.Border.all(2, "#ffffff" if active else ft.Colors.TRANSPARENT)
             ring.content.visible = active
+        for sw in (self._switch_saludos, self._switch_hora, self._switch_lite):
+            apply_switch_theme(sw, hex_code, is_dark)
+        if self._current_lang == "es":
+            self._btn_lang_es.bgcolor = hex_code
+            self._btn_lang_es.border = ft.Border.all(1, hex_code)
+        else:
+            self._btn_lang_en.bgcolor = hex_code
+            self._btn_lang_en.border = ft.Border.all(1, hex_code)
+        self._save_btn.bgcolor = hex_code
+        self._save_btn.border = ft.Border.all(1, hex_code)
         self._mark_modified()
         if self._on_prefs_changed:
             self._on_prefs_changed({
@@ -662,6 +674,15 @@ class FletThemeStudioView(ft.Container):
         self.bgcolor = tokens.canvas_bg
         self._title_text.color = tokens.text_primary
         self._subtitle_text.color = tokens.text_secondary
+        is_dark = tokens.mode == "dark"
+        for sw in (self._switch_saludos, self._switch_hora, self._switch_lite):
+            apply_switch_theme(sw, tokens.primary, is_dark)
+        if self._current_lang == "es":
+            self._btn_lang_es.bgcolor = tokens.primary
+            self._btn_lang_es.border = ft.Border.all(1, tokens.primary)
+        else:
+            self._btn_lang_en.bgcolor = tokens.primary
+            self._btn_lang_en.border = ft.Border.all(1, tokens.primary)
         self._save_btn.bgcolor = tokens.primary
         self._save_btn.border = ft.Border.all(1, tokens.primary)
         self._reset_btn.bgcolor = tokens.sub_bg

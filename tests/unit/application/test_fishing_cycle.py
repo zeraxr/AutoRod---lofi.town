@@ -72,6 +72,9 @@ class TestFishingCycleTask(unittest.TestCase):
         self.assertEqual(len(cmds_hit1), 3)
         self.assertEqual(self.task.current_state, FishingState.MINIGAME)
 
+        # La aguja sale del sector verde durante la rotación (desarma el pestillo)
+        self.task.evaluate(self._make_result("minigame_tracking", found=False))
+
         # 5. Minigame needle hit #2 -> clicks again and stays in MINIGAME
         cmds_hit2 = self.task.evaluate(self._make_result("minigame_needle_hit"))
         self.assertEqual(len(cmds_hit2), 3)
@@ -237,6 +240,36 @@ class TestFishingCycleTask(unittest.TestCase):
             c = task.evaluate(self._make_result("blank_card_detected", x=300, y=200))
             self.assertEqual(len(c), 0)
             self.assertEqual(task.current_state, FishingState.SCANNING)
+
+
+    def test_minigame_exit_latch_prevents_double_click_on_same_green_pass(self) -> None:
+        """Verifica que el pestillo de salida bloquee al 100% dobles clics en la misma pasada verde."""
+        # 1. Iniciar minijuego
+        self.task.evaluate(self._make_result("reel_button_detected"))
+        self.assertEqual(self.task.current_state, FishingState.MINIGAME)
+
+        # 2. Primer contacto con el borde frontal verde -> Clic inyectado
+        cmds1 = self.task.evaluate(self._make_result("minigame_needle_hit"))
+        self.assertEqual(len(cmds1), 3)
+        self.assertTrue(self.task._needle_latched)
+
+        # 3. Fotogramas subsiguientes de la misma pasada verde (incluso tras expirar tiempo)
+        # El pestillo debe bloquear todo clic adicional
+        cmds_duplicate1 = self.task.evaluate(self._make_result("minigame_needle_hit"))
+        self.assertEqual(len(cmds_duplicate1), 0, "No debe cliquear dos veces en la misma pasada")
+
+        cmds_duplicate2 = self.task.evaluate(self._make_result("minigame_needle_hit"))
+        self.assertEqual(len(cmds_duplicate2), 0)
+
+        # 4. La zona verde sale de la aguja -> minigame_tracking desarma el pestillo
+        cmds_tracking = self.task.evaluate(self._make_result("minigame_tracking", found=False))
+        self.assertEqual(len(cmds_tracking), 0)
+        self.assertFalse(self.task._needle_latched)
+
+        # 5. Siguiente sector verde o siguiente pasada -> Clic permitido nuevamente
+        cmds2 = self.task.evaluate(self._make_result("minigame_needle_hit"))
+        self.assertEqual(len(cmds2), 3)
+        self.assertTrue(self.task._needle_latched)
 
 
 if __name__ == "__main__":

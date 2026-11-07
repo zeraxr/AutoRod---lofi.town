@@ -38,6 +38,8 @@ class AppConfig:
     input_backend: str = "sendinput"              # 'interception', 'sendinput', 'postmessage', 'fake'
     vision_strategy: str = "geometric_vision_sota" # 'geometric_vision_sota', 'hsv_contour', 'sota_template_match', 'fake'
     button_threshold: float = 0.63
+    dial_threshold: float = 0.89
+    minigame_anticipation_px: int = 0             # Anticipación en píxeles (0 = centrado exacto en aguja)
     cache_button_size: bool = True
     required_cycles_to_lock: int = 5              # Ciclos exitosos necesarios para fijar el caché
     cache_inactivity_timeout_s: float = 90.0      # Ventana de inactividad máxima en caché bloqueado
@@ -106,6 +108,8 @@ def load_config(path: str = "config.toml") -> AppConfig:
         input_backend=str(app_data.get("input_backend", "sendinput")),
         vision_strategy=str(app_data.get("vision_strategy", "geometric_vision_sota")),
         button_threshold=float(app_data.get("button_threshold", 0.63)),
+        dial_threshold=float(app_data.get("dial_threshold", 0.89)),
+        minigame_anticipation_px=int(app_data.get("minigame_anticipation_px", 0)),
         cache_button_size=bool(app_data.get("cache_button_size", True)),
         required_cycles_to_lock=int(app_data.get("required_cycles_to_lock", 5)),
         cache_inactivity_timeout_s=float(app_data.get("cache_inactivity_timeout_s", 90.0)),
@@ -148,6 +152,8 @@ language = "{config.language}"
 input_backend = "{config.input_backend}"
 vision_strategy = "{config.vision_strategy}"
 button_threshold = {config.button_threshold:.2f}
+dial_threshold = {config.dial_threshold:.2f}
+minigame_anticipation_px = {config.minigame_anticipation_px}
 cache_button_size = {str(config.cache_button_size).lower()}
 required_cycles_to_lock = {config.required_cycles_to_lock}
 cache_inactivity_timeout_s = {config.cache_inactivity_timeout_s:.1f}

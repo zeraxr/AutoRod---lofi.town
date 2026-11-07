@@ -376,6 +376,32 @@ class TestFletUIArchitecture(unittest.TestCase):
         vp._on_pause_click(None)
         self.assertTrue(preview_called)
 
+    def test_toggle_transition_animations_lite_mode_no_error(self) -> None:
+        """Verifica que activar el modo lite (desactivar animaciones) no lance AttributeError en AnimatedSwitcher."""
+        from unittest.mock import MagicMock
+        from autorod.infrastructure.ui.flet.app import FletMainApp
+        app = FletMainApp(
+            runner=MagicMock(),
+            diagnostics=MagicMock(),
+            renderer=MagicMock(),
+            config=AppConfig(enable_transition_animations=True)
+        )
+        app._view_switcher = ft.AnimatedSwitcher(
+            content=ft.Container(),
+            duration=240,
+            reverse_duration=180,
+            transition=ft.AnimatedSwitcherTransition.FADE
+        )
+        # 1. Simular activación de modo lite (animaciones desactivadas)
+        app._on_preferences_changed({"enable_transition_animations": False})
+        self.assertEqual(app._view_switcher.duration, 0)
+        self.assertEqual(app._view_switcher.reverse_duration, 0)
+
+        # 2. Reactivar animaciones
+        app._on_preferences_changed({"enable_transition_animations": True})
+        self.assertEqual(app._view_switcher.duration, 240)
+        self.assertEqual(app._view_switcher.reverse_duration, 180)
+
     def test_set_bot_running_updates_badges_across_views(self) -> None:
         """Verifica que set_bot_running actualice dinámicamente las insignias en todas las vistas."""
         telemetry = FletTelemetryView(theme_manager=self.theme_mgr)
@@ -389,6 +415,44 @@ class TestFletUIArchitecture(unittest.TestCase):
             v.set_bot_running(False)
             self.assertEqual(v._status_label.value, "Pausado")
             self.assertEqual(v._status_dot.bgcolor, "#5554d9")
+
+    def test_accent_color_and_switches_binding(self) -> None:
+        """Verifica que los botones y switches respeten estrictamente el color de acento sin sangre verde."""
+        cfg = AppConfig(accent_color="#5554d9", theme_mode="dark")
+        mgr = ThemeManager.get_instance(cfg.ui_theme, mode=cfg.theme_mode, accent=cfg.accent_color)
+        settings = FletSettingsView(config=cfg, theme_manager=mgr)
+        studio = FletThemeStudioView(config=cfg, theme_manager=mgr)
+        viewport = FletDiagnosticsViewport(theme_manager=mgr, config=cfg)
+
+        # 1. En reposo con acento #5554d9
+        self.assertEqual(viewport._quick_play_btn.bgcolor, "#5554d9")
+        self.assertEqual(settings._save_btn.bgcolor, "#5554d9")
+        self.assertEqual(studio._save_btn.bgcolor, "#5554d9")
+
+        # Switches de Configuración
+        for sw in (settings._defocus_switch, settings._tray_switch, settings._startup_switch):
+            self.assertEqual(sw.active_track_color, "#5554d9")
+            self.assertEqual(sw.track_color[ft.ControlState.SELECTED], "#5554d9")
+            self.assertEqual(sw.thumb_color[ft.ControlState.SELECTED], "#ffffff")
+
+        # Switches de Personalización
+        for sw in (studio._switch_saludos, studio._switch_hora, studio._switch_lite):
+            self.assertEqual(sw.active_track_color, "#5554d9")
+            self.assertEqual(sw.track_color[ft.ControlState.SELECTED], "#5554d9")
+            self.assertEqual(sw.thumb_color[ft.ControlState.SELECTED], "#ffffff")
+
+        # 2. Cambio dinámico a Rosa Neón (#f7768e)
+        studio._on_accent_select("#f7768e")
+        settings.apply_theme(mgr.current)
+
+        self.assertEqual(viewport._quick_play_btn.bgcolor, "#f7768e")
+        self.assertEqual(settings._save_btn.bgcolor, "#f7768e")
+        self.assertEqual(studio._save_btn.bgcolor, "#f7768e")
+        self.assertEqual(settings._defocus_switch.active_track_color, "#f7768e")
+        self.assertEqual(studio._switch_saludos.active_track_color, "#f7768e")
+
+        # Restaurar a púrpura oficial
+        studio._on_accent_select("#5554d9")
 
 
 if __name__ == "__main__":

@@ -62,6 +62,7 @@ class FindAndClickTask(IBotTask):
         self._on_cycle_completed = on_cycle_completed
         self._total_successful_cycles = 0
         self._cycle_in_progress = False
+        self._needle_latched = False
 
     @property
     def state_machine(self) -> FishingStateMachine:
@@ -97,6 +98,7 @@ class FindAndClickTask(IBotTask):
             self._card_dismiss_clicks = 0
             self._last_card_center = None
             self._cycle_in_progress = False
+            self._needle_latched = False
 
         strategy = result.strategy_id
 
@@ -167,11 +169,24 @@ class FindAndClickTask(IBotTask):
 
         # Si no hay objetivo confirmado y no estamos en CARD_DISMISS, no accionar
         if not result.found:
+            # Mantener vivo el estado MINIGAME mientras el dial se esté rastreando activamente
+            if strategy == "minigame_tracking":
+                self._needle_latched = False
+                if self._fsm.state == FishingState.MINIGAME:
+                    self._fsm.state_entered_at = now
+                elif self._fsm.state == FishingState.SCANNING:
+                    self._fsm.transition_to(FishingState.MINIGAME, now)
             return []
 
         # 3. FILTRO DE SEGURIDAD ESTRICTO:
         # Si se detecta una tarjeta blanca pero NO venimos del minijuego, IGNORAR por completo
         if strategy == "blank_card_detected" and self._fsm.state == FishingState.SCANNING:
+            return []
+
+        # Pestillo de salida (One-Shot / Flanco de subida):
+        # Si ya se ejecutó un clic en esta pasada del sector verde, bloquear clics adicionales
+        # hasta que la aguja salga completamente de la zona verde.
+        if strategy == "minigame_needle_hit" and self._needle_latched:
             return []
 
         # 4. Control de cooldown adaptativo según el contexto operativo
@@ -208,8 +223,9 @@ class FindAndClickTask(IBotTask):
                 self._fsm.transition_to(FishingState.MINIGAME, now)
 
             self._minigame_hits += 1
+            self._needle_latched = True
             logger.info(
-                "[MINIJUEGO] ¡Zona verde alineada con aguja! Clic #%d inyectado en centro dial %s para jalar el pez.",
+                "[MINIJUEGO] ¡Borde de zona verde detectado! Clic instantáneo #%d inyectado en centro dial %s (Pestillo armado hasta salida).",
                 self._minigame_hits, coords_str
             )
             self._fsm.state_entered_at = now

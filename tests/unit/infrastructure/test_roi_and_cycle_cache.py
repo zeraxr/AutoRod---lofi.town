@@ -1,3 +1,4 @@
+import cv2
 import unittest
 from pathlib import Path
 import numpy as np
@@ -196,6 +197,111 @@ class TestRoiAndCycleCache(unittest.TestCase):
         self.assertFalse(strategy.is_cache_locked)
         self.assertEqual(strategy.successful_cycles, 0)
         self.assertIsNone(strategy.cached_scale)
+
+
+    def test_locked_cache_neighborhood_tolerance(self) -> None:
+        repo = FileTemplateRepository()
+        strategy = GeometricVisionStrategy(
+            template_repo=repo,
+            cache_size_enabled=True,
+            required_cycles_to_lock=5
+        )
+
+        tpl_cast = payload_to_ndarray(repo.load("cast_button"))
+        th, tw = tpl_cast.shape[:2]
+        screen = np.full((600, 800, 3), 45, dtype=np.uint8)
+        screen[200:200+th, 300:300+tw] = tpl_cast
+
+        payload = ImagePayload(
+            width=800,
+            height=600,
+            pixel_format=PixelFormat.BGR8,
+            stride=800 * 3,
+            data=screen.tobytes(),
+            frame_id=1,
+            captured_at_ns=0,
+            source_id="test_screen"
+        )
+
+        strategy.analyze(payload)
+        for i in range(1, 6):
+            strategy.register_successful_cycle(i)
+        self.assertTrue(strategy.is_cache_locked)
+        self.assertEqual(strategy.cached_scale, 1.0)
+
+        # Escala vecina 0.95 (+-5%) dentro de la tolerancia de vecindad
+        tpl_095 = cv2.resize(tpl_cast, (0, 0), fx=0.95, fy=0.95, interpolation=cv2.INTER_AREA)
+        h95, w95 = tpl_095.shape[:2]
+        screen_095 = np.full((600, 800, 3), 45, dtype=np.uint8)
+        screen_095[200:200+h95, 300:300+w95] = tpl_095
+
+        p_095 = ImagePayload(
+            width=800,
+            height=600,
+            pixel_format=PixelFormat.BGR8,
+            stride=800 * 3,
+            data=screen_095.tobytes(),
+            frame_id=2,
+            captured_at_ns=0,
+            source_id="test_095"
+        )
+        res = strategy.analyze(p_095)
+        self.assertTrue(res.found)
+        self.assertEqual(res.strategy_id, "cast_button_detected")
+        self.assertTrue(strategy.is_cache_locked)
+
+    def test_locked_cache_fallback_on_drastic_scale_change(self) -> None:
+        repo = FileTemplateRepository()
+        strategy = GeometricVisionStrategy(
+            template_repo=repo,
+            cache_size_enabled=True,
+            required_cycles_to_lock=5
+        )
+
+        tpl_cast = payload_to_ndarray(repo.load("cast_button"))
+        th, tw = tpl_cast.shape[:2]
+        screen = np.full((600, 800, 3), 45, dtype=np.uint8)
+        screen[200:200+th, 300:300+tw] = tpl_cast
+
+        payload = ImagePayload(
+            width=800,
+            height=600,
+            pixel_format=PixelFormat.BGR8,
+            stride=800 * 3,
+            data=screen.tobytes(),
+            frame_id=1,
+            captured_at_ns=0,
+            source_id="test_screen"
+        )
+
+        strategy.analyze(payload)
+        for i in range(1, 6):
+            strategy.register_successful_cycle(i)
+        self.assertTrue(strategy.is_cache_locked)
+
+        # Cambio radical al 70% (0.70x) fuera de la vecindad inmediata
+        tpl_070 = cv2.resize(tpl_cast, (0, 0), fx=0.70, fy=0.70, interpolation=cv2.INTER_AREA)
+        h70, w70 = tpl_070.shape[:2]
+        screen_070 = np.full((600, 800, 3), 45, dtype=np.uint8)
+        screen_070[200:200+h70, 300:300+w70] = tpl_070
+
+        p_070 = ImagePayload(
+            width=800,
+            height=600,
+            pixel_format=PixelFormat.BGR8,
+            stride=800 * 3,
+            data=screen_070.tobytes(),
+            frame_id=2,
+            captured_at_ns=0,
+            source_id="test_070"
+        )
+
+        res = strategy.analyze(p_070)
+        self.assertTrue(res.found)
+        self.assertEqual(res.strategy_id, "cast_button_detected")
+        # El fallback multi-escala debe purgar el cache
+        self.assertFalse(strategy.is_cache_locked)
+        self.assertEqual(strategy.successful_cycles, 0)
 
 
 if __name__ == "__main__":

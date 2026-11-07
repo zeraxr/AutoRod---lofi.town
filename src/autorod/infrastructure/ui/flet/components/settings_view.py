@@ -2,7 +2,7 @@
 
 from typing import Callable, Any
 import flet as ft
-from autorod.infrastructure.ui.flet.theme import ThemeManager, ThemeTokens
+from autorod.infrastructure.ui.flet.theme import ThemeManager, ThemeTokens, apply_switch_theme
 from autorod.config import AppConfig, save_config
 from autorod.infrastructure.ui.flet.utils import safe_update
 import mss
@@ -166,19 +166,18 @@ class FletSettingsView(ft.Container):
         # ---------------------------------------------------------------------
         self._defocus_switch = ft.Switch(
             value=self._config.pause_on_defocus,
-            active_color=self._tokens.primary,
             on_change=lambda _: self._mark_modified()
         )
         self._tray_switch = ft.Switch(
             value=self._config.minimize_to_tray,
-            active_color=self._tokens.primary,
             on_change=lambda _: self._mark_modified()
         )
         self._startup_switch = ft.Switch(
             value=self._config.open_at_startup,
-            active_color=self._tokens.primary,
             on_change=lambda _: self._mark_modified()
         )
+        for sw in (self._defocus_switch, self._tray_switch, self._startup_switch):
+            apply_switch_theme(sw, self._tokens.primary, self._tokens.mode == "dark")
 
         behavior_card = ft.Container(
             content=ft.Column(
@@ -434,9 +433,8 @@ class FletSettingsView(ft.Container):
         self.bgcolor = tokens.canvas_bg
         self._title_text.color = tokens.text_primary
         self._subtitle_text.color = tokens.text_secondary
-        self._defocus_switch.active_color = tokens.primary
-        self._tray_switch.active_color = tokens.primary
-        self._startup_switch.active_color = tokens.primary
+        for sw in (self._defocus_switch, self._tray_switch, self._startup_switch):
+            apply_switch_theme(sw, tokens.primary, tokens.mode == "dark")
         self._save_btn.bgcolor = tokens.primary
         self._save_btn.border = ft.Border.all(1, tokens.primary)
         self._reset_btn.bgcolor = tokens.sub_bg

@@ -1,34 +1,34 @@
-# 🎣 AutoRod v2.1.0
+# 🎣 AutoRod v2.2.0
 
-Actualización centrada en refinamiento visual (Figma 1:1), centro de ayuda in-app y estabilidad adaptativa del motor de visión.
+Actualización centrada en precisión del minijuego con memoria anti-sacudidas, nuevo sistema in-app de actualizaciones y correcciones cromáticas en la interfaz.
 
 ---
 
 ### ✨ Novedades Destacadas
 
-* **📘 Centro de Ayuda Integrado:** Buscador en tiempo real con soluciones rápidas, guía de 4 pasos para configurar tu juego y copia de diagnóstico en un clic.
-* **🧭 Barra Lateral Figma 1:1:** Rediseño minimalista con pestañas sobrias en estilo píldora activa, transiciones fluidas de colapso y acceso directo a Discord.
-* **🎯 Calibración Adaptativa en 5 Ciclos:** El motor evalúa 5 ciclos de pesca continuos antes de fijar la escala en memoria $O(1)$, reduciendo la latencia a <2 ms.
-* **⏱️ Watchdog de Inactividad (90s):** Auto-recalibración inteligente si mueves, redimensionas o cambias el zoom del navegador.
-* **🎨 Theme Studio Refinado:** Conmutación formal Claro/Oscuro y 6 paletas de acento optimizadas con estándar WCAG 2.2 AA (>4.5:1).
-* **⌨️ Atajos Globales de Teclado:** Control rápido con `Shift + Q` (Pausar/Reanudar) y `Alt + Q` (Cierre inmediato de emergencia). *(Teclas F8/F9 en desarrollo para futuras versiones)*.
-* **🛡️ Resiliencia de Captura:** Recuperación automática ante bloqueos temporales del Administrador de Ventanas (DWM) sin interrupciones.
-* **🗑️ Simplificación de Interfaz:** Pestaña "Parámetros" deprecada y consolidada en Configuración para blindar las constantes del motor.
+* **🚀 Diálogo In-App de Actualizaciones:** Comprobación interactiva desde la barra superior, con detección automática de versión Portable e información directa de nuevas versiones.
+* **🎯 Tolerancia Anti-Sacudidas (35 Frames):** El motor visual mantiene el anclaje del dial del minijuego durante sacudidas de cámara, destellos o micro-tirones del navegador.
+* **📍 Centrado Preciso de Aguja:** Localización sub-píxel de la punta de la aguja con soporte para compensación de anticipación (`minigame_anticipation_px`).
+* **⏱️ Margen de Minijuego Extendido (16s):** Tiempo de gracia ampliado para garantizar la captura sin cortes prematuros en peces legendarios.
+* **🎨 Tema Visual Puro:** Los switches y controles interactivos respetan al 100% el acento seleccionado en Theme Studio, eliminando sangrados verdosos residuales.
+* **🔍 Trazabilidad de ROI en Consola:** Registro explícito en el arranque con las coordenadas exactas de la zona de escaneo y umbrales del motor.
 
 ---
 
 ### 📜 Notas Completas del Parche
 Para ver el desglose técnico detallado, comparativas y notas de desarrollo estilo League of Legends, consulta:
-👉 **[PATCHNOTES.md (Notas Completas del Parche 2.1)](PATCHNOTES.md)**
+👉 **[PATCHNOTES.md (Notas Completas del Parche 2.2)](PATCHNOTES.md)**
 
 ---
 
 ### 📦 Descarga Oficial
 
-* **`AutoRod-v2.1.0-Portable.zip`:** Versión autónoma recomendada. Descomprimir y ejecutar `AutoRod.exe` directamente.
+* **`AutoRod-v2.2.0-Portable.zip`:** Versión autónoma recomendada. Descomprimir y ejecutar `AutoRod.exe` directamente.
 * **`SHA256SUMS.txt`:** Suma criptográfica de integridad:
   ```powershell
-  Get-FileHash .\AutoRod-v2.1.0-Portable.zip -Algorithm SHA256
+  Get-FileHash .\AutoRod-v2.2.0-Portable.zip -Algorithm SHA256
   ```
 
-> *Nota: El asistente de instalación asistida `.exe` continúa en desarrollo y se incluirá en futuras entregas.*
+> [!NOTE]
+> **Cláusula sobre el Instalador:**
+> Se publica de manera exclusiva la versión **Portable** del software. El instalador con setup asistido `.exe` aún no ha sido del todo desarrollado y continúa en fase de pruebas internas para garantizar una experiencia óptima y segura; su lanzamiento oficial se incorporará en futuras versiones.

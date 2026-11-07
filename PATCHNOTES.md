@@ -1,108 +1,95 @@
-# 📜 Notas del Parche 2.1 — AutoRod
+# 📜 Notas del Parche 2.2 — AutoRod
 
-> *"Un buen pescador nunca culpa a su caña... pero una interfaz limpia y un dial que no falla ciertamente ayudan."*
+> *"La precisión no es cuestión de suerte: un dial que no parpadea ante las sacudidas y una aguja perfectamente centrada marcan la diferencia entre un pez legendario y una bota rota."*
 
-¡Bienvenidos al **Parche 2.1 de AutoRod**! 
+¡Bienvenidos al **Parche 2.2 de AutoRod**!
 
-En esta actualización nos hemos enfocado en limpiar el tablero, simplificar la navegación y elevar la precisión del motor visual. Traemos un rediseño de interfaz siguiendo lineamientos modernos de Figma, un Centro de Ayuda integrado para resolver dudas en segundos, atajos globales de teclado y un nuevo algoritmo de auto-calibración adaptativa en 5 ciclos que garantiza clics en sub-milisegundos sin importar el zoom del navegador.
+Esta versión llega cargada de optimizaciones directas al corazón del motor de visión y a la experiencia del usuario. Hemos perfeccionado el seguimiento del minijuego con memoria temporal contra sacudidas de hasta 35 fotogramas, introducido un nuevo sistema interactivo de comprobación de actualizaciones dentro de la propia aplicación que distingue entre entornos portables e instalados, solucionado el sangrado de color en los controles de interfaz y extendido el margen de rescate del minijuego a 16 segundos.
 
-A continuación, todos los detalles del parche.
+A continuación, el desglose completo de los cambios del parche.
 
 ---
 
 ## 🏆 Resumen del Parche
 
 ```
-✨ Centro de Ayuda integrado con guía paso a paso y diagnósticos
-🎨 Barra lateral Figma 1:1 con estilo píldora activa y modo Claro/Oscuro
-⚡ Calibración dinámica en 5 ciclos con fijación O(1) en memoria
-🛡️ Watchdog de 90s para auto-recalibración ante cambios de ventana
-⌨️ Atajos de teclado globales (Shift+Q / Alt+Q)
-🗑️ Pestaña 'Parámetros' deprecada y consolidada en Configuración
+🚀 Diálogo interactivo in-app de actualizaciones con detección de entorno
+🎯 Memoria temporal de 35 cuadros en el minijuego contra sacudidas y destellos
+📐 Calibración de anticipación en píxeles y centrado de aguja en el dial
+⏱️ Buff de rescate del minijuego: tiempo de gracia extendido de 8s a 16s
+🎨 Aislamiento estricto de acento en Theme Studio (sin sangrado verde)
+🔍 Diagnóstico en arranque con coordenadas de la zona de escaneo (ROI)
+📦 Distribución exclusiva en formato Portable plug-and-play
 ```
 
 ---
 
-## ✨ Nuevas Características & Reworks de Interfaz
+## 🚀 Sistema de Actualizaciones In-App (Nuevo)
 
-### 📘 Centro de Ayuda y Soporte In-App (Nuevo)
-* **Buscador interactivo en tiempo real:** Encuentra soluciones rápidas filtrando por palabras clave (calibración, resolución, zoom, atajos).
-* **Guía de configuración en 4 pasos:** Instrucciones claras ilustradas para alinear el juego en el navegador con la escala recomendada.
-* **Copia de diagnóstico en un clic:** Genera y copia al portapapeles la información de versión y sistema operativo para facilitar reportes.
-* **Acceso directo a la comunidad:** Botón oficial vinculado a nuestro servidor de Discord para soporte y sugerencias.
-
-### 🧭 Barra Lateral de Navegación Figma 1:1 (Rework)
-* **5 Pestañas Activas:** Inicio, Configuración, Personalización, Telemetría y Ayuda.
-* **Estilo Píldora Activa:** La pestaña seleccionada ahora utiliza un contenedor redondeado con contraste sobrio y tipografía nítida.
-* **Colapso Suave:** Transición animada entre modo compacto (72 px) y expandido (236 px) sin descuadrar controles ni botones.
-* **Diseño sin Ruido:** Se eliminaron badges numéricos distractores y logotipos duplicados para mantener el foco en la telemetría.
-
-### 🎨 Theme Studio & Paletas de Color (Mejora)
-* **Base Dual:** Conmutación formal entre modo **Oscuro** (fondo `#0e1015`) y modo **Claro** (fondo `#f8fafc`).
-* **6 Acentos de Élite:** Paletas ajustadas (*Cyberpunk Cyan, Crimson Pulse, GitHub Green, Royal Purple, Solar Amber, Pure White*) garantizando cumplimiento de contraste **WCAG 2.2 AA / AAA** (> 4.5:1).
-
-### ⌨️ Atajos de Teclado Globales (Nuevo)
-* **Pausar / Reanudar:** Presiona `Shift + Q` en cualquier momento para alternar el ciclo de pesca sin perder la calibración.
-* **Cierre de Emergencia:** Presiona `Alt + Q` (Left Alt + Q) para forzar el apagado inmediato y seguro de la aplicación.
-* *Nota:* Los atajos en teclas de función (`F8` y `F9`) se encuentran actualmente en cola de desarrollo y se incorporarán en versiones futuras.
-* Atajos capturados a nivel de sistema operativo para responder al instante incluso si la ventana de AutoRod está minimizada.
+### 🔔 Notificador y Diálogo Inteligente
+* **Detección Determinista de Entorno:** El sistema ahora reconoce automáticamente si la aplicación se ejecuta como versión **Portable** (carpeta de usuario/descargas) o **Instalada** mediante instalador de sistema.
+* **Flujo Asistido según Entorno:**
+  * En versión **Portable**, el asistente informa sobre la nueva versión y proporciona un botón de acceso directo al repositorio oficial de GitHub para una descarga transparente.
+  * En versión **Instalada**, ofrece la descarga asíncrona del instalador con barra de progreso en vivo e instalación en un clic.
+* **Indicador Nítido en Barra de Título:** Un punto de estado en color celeste se activa de forma discreta únicamente cuando existe una versión superior comprobada mediante la API de GitHub.
 
 ---
 
-## ⚡ Motor de Visión & Calibración (Buffs & Mecánicas)
+## 🎯 Motor Visual & Minijuego (Buffs & Rework)
 
-### 🎯 Calibración Dinámica en 5 Ciclos
-* **Antes:** El motor intentaba bloquear la escala observada en el primer match o requería reajuste manual.
-* **Ahora:** Durante los primeros 5 ciclos de pesca exitosos, el motor evalúa dinámicamente las variaciones de tamaño de los botones en pantalla. Al quinto ciclo validado, **bloquea la escala en memoria $O(1)$**, reduciendo el costo de CPU y bajando la latencia de análisis a menos de 2 ms por cuadro.
+### 🛡️ Memoria de Persistencia Temporal (Anti-Jitter de 35 Frames)
+* **Antes:** Si la animación del juego parpadeaba, sufría un destello de luz o una sacudida brusca de cámara, el motor perdía el dial instantáneamente y abortaba el ciclo.
+* **Ahora:** Se incorporó un acumulador de tolerancia (`_dial_lost_frames`). El motor mantiene el anclaje y predicción del dial hasta durante **35 fotogramas consecutivos de sacudida** (~300-500 ms), absorbiendo caídas de cuadros del navegador y transiciones gráficas sin perder el objetivo.
 
-### ⏱️ Watchdog de Inactividad (90 Segundos)
-* **Nueva mecánica de seguridad:** Una vez bloqueada la escala, si transcurren 90 segundos continuos sin detectar ningún elemento del juego (tiempo que supera holgadamente la espera máxima de picada), el motor asume que la ventana del navegador fue movida, minimizada o modificada en zoom, y **purga el caché automáticamente** para recalibrarse desde cero en el siguiente ciclo.
-
-### 🔍 Detección Adaptativa de Recompensas
-* **Fórmula de área dinámica:** La detección de tarjetas de peces capturados ahora calcula el umbral proporcionalmente a la resolución capturada (`área > min(8000 px, 10% de pantalla)`), evitando falsos positivos con barras de tareas o títulos de ventanas.
-
-### 🖥️ Tolerancia a Altos Factores de Zoom
-* Soporte nativo y probado en pirámides multiescala para zooms de navegador de `1.25x`, `1.50x`, `1.75x` y `2.0x` en pantallas 1080p, 1440p y 4K.
+### 📍 Centrado Dinámico de Aguja y Compensación de Anticipación
+* **Alineación Geométrica Fina:** El cálculo del centro de clic ahora localiza el punto exacto de la aguja (`needle_cx`), reduciendo el desvío lateral a 0 px.
+* **Parámetro de Anticipación (`minigame_anticipation_px`):** Permite configurar anticipación en píxeles para adaptarse a monitores con tasas de refresco dispares o retrasos de renderizado en el navegador.
+* **Umbral de Dial Calibrado (0.89):** El umbral de coincidencia se ajustó a 0.89 para garantizar un 100% de inmunidad ante césped o fondos oscuros, permitiendo una detección instantánea del sector verde con solo 35% de densidad bajo la aguja.
 
 ---
 
-## 🛡️ Calidad de Vida (QoL) & Resiliencia
+## ⏱️ Resiliencia del Bucle de Pesca (Buffs a Tiempos de Espera)
 
-### 🔄 Auto-recuperación de Captura de Pantalla
-* Si el Administrador de Ventanas de Windows (DWM) o un cambio de resolución genera fallos transitorios en la captura, el productor no colapsa: tras 5 fallos consecutivos reinicia silenciosamente el contexto de hardware y continúa operando con normalidad.
-
-### 💓 Latidos de Rescate en la Cola de Ejecución
-* Si la animación de pesca en el navegador sufre un congelamiento temporal o el juego pierde foco durante el minijuego, el ejecutor de acciones emite latidos periódicos en cola vacía para recuperar la máquina de estados y devolver el flujo a escaneo automático sin intervención manual.
+### 📈 Extensión de Tiempo de Minijuego (8s ➔ 16s)
+* En peces de alta rareza o animaciones con múltiples giros en el navegador, el temporizador anterior de 8 segundos podía forzar un reinicio prematuro a modo escaneo.
+* El tiempo máximo antes de declarar timeout se amplió a **16.0 segundos**, garantizando que el ciclo continúe activo hasta que la captura concluya de forma natural.
 
 ---
 
-## 🗑️ Deprecaciones & Cambios Fuera del Meta
+## 🎨 Theme Studio & Interfaz de Usuario (Mejoras Visuales)
 
-| Elemento / Función | Estado Anterior | Estado Parche 2.1 | Razón del Cambio |
+### 🧪 Erradicación de Sangrado de Color en Controles
+* **Antes:** Al seleccionar paletas de acento alternativas (como Cyberpunk Cyan o Crimson Pulse), algunos interruptores de alternancia y deslizadores mostraban bordes o halos con el color verde por defecto.
+* **Ahora:** Todos los controles de interfaz, switches y botones cinéticos heredan estrictamente el color de acento activo (`active_color`, `thumb_color`, `track_color`), manteniendo una armonía cromática inmaculada.
+
+---
+
+## 🔍 Trazabilidad y Diagnóstico de Arranque
+
+### 📋 Registro Explícito de ROI
+* Al iniciar la aplicación, la consola de diagnóstico registra detalladamente si la zona de escaneo recortada está activa, junto con sus coordenadas exactas (`(x1, y1)` a `(x2, y2)` y resolución en píxeles) y los parámetros calibrados del motor (`button_threshold`, `dial_threshold`, `anticipation_px`, ciclos requeridos y watchdog de inactividad).
+
+---
+
+## 🗑️ Cambios Menores & Ajustes del Meta
+
+| Componente | Estado Parche 2.1 | Estado Parche 2.2 | Razón del Cambio |
 | :--- | :--- | :--- | :--- |
-| **Pestaña 'Parámetros'** | Pestaña independiente en barra lateral | **Deprecada y eliminada** | Concentrar parámetros avanzados desestabilizaba la heurística visual; las opciones esenciales se consolidaron en el menú de Configuración. |
-| **Badges numéricos en tabs** | Indicadores numéricos en iconos | **Eliminados** | Generaban ruido visual innecesario en una herramienta de productividad limpia. |
-| **Logotipo duplicado en sidebar** | Ícono repetido en barra lateral | **Retirado** | El branding oficial se unificó en la barra de título superior para ganar espacio vertical. |
-
----
-
-## 🐛 Corrección de Errores
-
-* Se corrigió un problema donde el caché de escala se limpiaba erróneamente durante los tiempos pasivos de espera de picada.
-* Se ajustó el contraste de los textos secundarios en el tema oscuro para asegurar legibilidad bajo luz ambiental intensa.
-* Se eliminaron advertencias de hilos huérfanos al cerrar la aplicación durante una calibración activa.
-* Se blindaron las llamadas de teclado para prevenir bloqueos en entornos con permisos restringidos de usuario.
+| **Tiempo límite de minijuego** | 8.0 segundos | **16.0 segundos** | Evitar timeouts en peces con animaciones largas. |
+| **Pérdida de cuadros de dial** | 0 cuadros (pérdida inmediata) | **35 cuadros de tolerancia** | Resistencia a destellos y sacudidas gráficas. |
+| **Umbral de impacto en verde** | 40% de área | **35% de área** | Respuesta más ágil al ingresar al sector óptimo. |
+| **Configuración de dial** | Umbral fijo en código | **Configurable (`dial_threshold = 0.89`)** | Flexibilidad y ajuste fino desde `config.toml`. |
 
 ---
 
 ## 📦 Paquetes de Distribución
 
 > [!NOTE]
-> **Recordatorio de Formato Portable:**
-> El instalador `.exe` asistido continúa en desarrollo para asegurar una experiencia de actualización transparente. El Parche 2.1 se distribuye de manera exclusiva en versión **Portable plug-and-play**.
-
-* **`AutoRod-v2.1.0-Portable.zip`:** Descomprimir en cualquier carpeta y ejecutar `AutoRod.exe`. No requiere permisos de Administrador ni altera el registro de Windows.
-* **`SHA256SUMS.txt`:** Suma criptográfica oficial para verificar que tu descarga no esté corrupta:
-  ```powershell
-  Get-FileHash .\AutoRod-v2.1.0-Portable.zip -Algorithm SHA256
-  ```
+> **Cláusula sobre el Formato de Distribución:**
+> El instalador asistido tipo Setup `.exe` continúa en etapa de desarrollo y pruebas internas para garantizar una experiencia de instalación y actualización segura y sin fricciones. Por ello, el Parche 2.2 se publica exclusivamente en formato **Portable plug-and-play** (`AutoRod-v2.2.0-Portable.zip`).
+> 
+> * **`AutoRod-v2.2.0-Portable.zip`:** Descomprimir en cualquier carpeta y ejecutar `AutoRod.exe`. No requiere permisos de Administrador ni altera el registro de Windows.
+> * **`SHA256SUMS.txt`:** Suma criptográfica oficial para validar la integridad del paquete:
+>   ```powershell
+>   Get-FileHash .\AutoRod-v2.2.0-Portable.zip -Algorithm SHA256
+>   ```

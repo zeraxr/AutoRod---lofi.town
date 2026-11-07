@@ -94,7 +94,7 @@ class VisionConsumer:
             )
             self._diagnostics.publish(diag)
 
-            if self._enabled and result.found:
+            if self._enabled and (result.found or result.strategy_id == "minigame_tracking"):
                 self._action_queue.put(result)
 
             self._frame_queue.task_done()

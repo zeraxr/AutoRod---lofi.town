@@ -27,7 +27,7 @@ Bot de pesca para [lofi.town](https://lofi.town/) usando visión por computadora
 
 ### Download
 Grab the latest release from the **[Releases](../../releases)** tab:
-* **Portable (`AutoRod-v2.1.0-Portable.zip`):** Standalone version. Unzip and run `AutoRod.exe` directly. No install needed.
+* **Portable (`AutoRod-v2.2.0-Portable.zip`):** Standalone version. Unzip and run `AutoRod.exe` directly. No install needed.
 *(Note: A dedicated setup installer is currently in development and will be included in future releases).*
 
 ### Note about Antivirus
@@ -71,7 +71,7 @@ python -m unittest discover -s tests
 
 ### Descarga
 Descarga la versión más reciente en la pestaña de **[Releases](../../releases)**:
-* **Portable (`AutoRod-v2.1.0-Portable.zip`):** Versión independiente. Descomprime y abre `AutoRod.exe` directamente sin instalación.
+* **Portable (`AutoRod-v2.2.0-Portable.zip`):** Versión independiente. Descomprime y abre `AutoRod.exe` directamente sin instalación.
 *(Nota: El instalador asistido .exe está actualmente en desarrollo y se incorporará en versiones futuras).*
 
 ### Nota sobre Antivirus

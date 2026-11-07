@@ -7,6 +7,7 @@ import flet as ft
 from typing import Callable, Any
 from autorod.infrastructure.ui.flet.theme import ThemeManager, ThemeTokens
 from autorod.infrastructure.updater.github_checker import UpdateInfo
+from autorod.infrastructure.ui.flet.components.update_dialog import FletUpdateHintDialog
 from autorod.infrastructure.ui.flet.utils import get_asset_path
 
 
@@ -62,14 +63,14 @@ class FletCustomTitleBar(ft.Container):
             bgcolor="#38bdf8",
             right=6,
             top=6,
-            visible=True
+            visible=False
         )
         self._update_sync_btn = ft.IconButton(
             icon=ft.Icons.SYNC_ROUNDED,
             icon_size=16,
             icon_color="#8f99b3",
             tooltip="Comprobar actualizaciones",
-            on_click=self._show_update_dialog,
+            on_click=self._handle_update_click,
             style=ft.ButtonStyle(padding=ft.Padding.all(4))
         )
         self._update_button = ft.Stack(
@@ -205,76 +206,38 @@ class FletCustomTitleBar(ft.Container):
             p.update()
 
     def set_update_available(self, info: UpdateInfo) -> None:
-        """Activa y hace visible el punto azul de actualización en el icono de sincronización."""
+        """Activa y hace visible el punto azul de actualización únicamente si hay una nueva versión."""
         self._current_update_info = info
-        self._update_dot.visible = True
-        self._update_dot.bgcolor = "#38bdf8"
+        self._update_dot.visible = bool(info and info.has_update)
         try:
             self._update_button.update()
         except Exception:
             pass
 
-    def _show_update_dialog(self, _: Any) -> None:
-        """Muestra el modal interactivo con los detalles de la nueva versión."""
+    def _handle_update_click(self, _: Any = None) -> None:
+        """Abre la ventana flotante tipo 'hint' con el diseño del software."""
         p = self._get_page()
-        if not p or not self._current_update_info:
+        if not p:
             return
 
-        info = self._current_update_info
+        def _on_status_changed(has_update: bool) -> None:
+            self._update_dot.visible = has_update
+            try:
+                self._update_button.update()
+            except Exception:
+                pass
 
-        def _open_download(_: Any) -> None:
-            webbrowser.open(info.download_url)
-            p.pop_dialog()
+        if not hasattr(self, "_update_dialog") or self._update_dialog is None:
+            self._update_dialog = FletUpdateHintDialog(
+                page=p,
+                theme_manager=self.theme_mgr,
+                on_close_app=self._on_close,
+                on_update_status_changed=_on_status_changed
+            )
 
-        def _close_dialog(_: Any) -> None:
-            p.pop_dialog()
+        self._update_dialog.show(preloaded_info=self._current_update_info)
 
-        dialog = ft.AlertDialog(
-            title=ft.Row(
-                controls=[
-                    ft.Icon(ft.Icons.ROCKET_LAUNCH, color="#10b981", size=22),
-                    ft.Text(f"Nueva versión disponible: {info.latest_version}", size=15, weight=ft.FontWeight.BOLD)
-                ],
-                spacing=8
-            ),
-            content=ft.Column(
-                controls=[
-                    ft.Text(
-                        f"Tu versión actual: v{info.current_version}\n"
-                        f"Última versión oficial: {info.latest_version}",
-                        size=12,
-                        color="#94a3b8"
-                    ),
-                    ft.Divider(color="#27272a"),
-                    ft.Text("Notas de la versión:", size=12, weight=ft.FontWeight.BOLD),
-                    ft.Container(
-                        content=ft.Text(
-                            info.release_notes,
-                            size=12,
-                            color="#e4e4e7"
-                        ),
-                        max_height=180,
-                        padding=8,
-                        bgcolor="#12131a",
-                        border_radius=6
-                    )
-                ],
-                tight=True,
-                spacing=8
-            ),
-            actions=[
-                ft.TextButton("Cancelar", on_click=_close_dialog),
-                ft.ElevatedButton(
-                    "Descargar Actualización",
-                    icon=ft.Icons.DOWNLOAD,
-                    bgcolor="#10b981",
-                    color="#ffffff",
-                    on_click=_open_download
-                )
-            ],
-            actions_alignment=ft.MainAxisAlignment.END
-        )
-        p.open_dialog(dialog)
+    _show_update_dialog = _handle_update_click
 
     def apply_theme(self, tokens: ThemeTokens) -> None:
         self.bgcolor = tokens.shell_bg

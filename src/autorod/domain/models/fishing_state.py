@@ -19,7 +19,7 @@ class FishingStateMachine:
     """
     state: FishingState = FishingState.SCANNING
     state_entered_at: float = 0.0
-    minigame_timeout_s: float = 8.0
+    minigame_timeout_s: float = 16.0
     card_timeout_s: float = 6.0
 
     def transition_to(self, new_state: FishingState, now: float) -> None:

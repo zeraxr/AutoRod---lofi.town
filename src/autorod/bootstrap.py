@@ -48,6 +48,19 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
 
     # 1. Ingesta de Fotogramas Real (MSS) con fallback de seguridad a sintético
     region = config.get_scan_region()
+    if config.scan_region_enabled and region:
+        logger.info(
+            "[BOOTSTRAP] ROI de Escaneo: (x1=%d, y1=%d) a (x2=%d, y2=%d) [%dx%d px] | Habilitado: True",
+            config.scan_x1, config.scan_y1, config.scan_x2, config.scan_y2,
+            region["width"], region["height"]
+        )
+    else:
+        logger.info("[BOOTSTRAP] Ingesta de Pantalla: Pantalla Completa (ROI deshabilitada)")
+
+    logger.info(
+        "[BOOTSTRAP] Parámetros: Umbral botón: %.2f | Umbral dial: %.2f | Anticipación: %d px | Ciclos para bloqueo: %d | Watchdog: %.0fs",
+        config.button_threshold, config.dial_threshold, config.minigame_anticipation_px, config.required_cycles_to_lock, config.cache_inactivity_timeout_s
+    )
     try:
         capture_source = MssCaptureSource(monitor_index=config.monitor_index, region=region)
     except Exception as exc:
@@ -62,9 +75,11 @@ def build_app(config_path: str = "config.toml") -> FletMainApp:
     if config.vision_strategy == "geometric_vision_sota":
         vision_strategy = GeometricVisionStrategy(
             button_threshold=config.button_threshold,
+            dial_threshold=config.dial_threshold,
             cache_size_enabled=config.cache_button_size,
             required_cycles_to_lock=config.required_cycles_to_lock,
-            cache_inactivity_timeout_s=config.cache_inactivity_timeout_s
+            cache_inactivity_timeout_s=config.cache_inactivity_timeout_s,
+            minigame_anticipation_px=config.minigame_anticipation_px
         )
     elif config.vision_strategy == "hsv_contour":
         vision_strategy = HsvContourStrategy()
