@@ -35,7 +35,7 @@ def detect_installation_type() -> InstallationType:
         return InstallationType.DEVELOPMENT
 
     # 1. Ejecución en entorno de desarrollo (código fuente Python puro)
-    if not getattr(sys, "frozen", False):
+    if not getattr(sys, "frozen", False) and "__compiled__" not in globals():
         return InstallationType.DEVELOPMENT
 
     exe_path = Path(sys.executable).resolve()

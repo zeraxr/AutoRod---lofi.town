@@ -5,6 +5,7 @@ mss>=9.0.1
 flet>=1.0.0
 flet-desktop>=1.0.0
 
-# Herramientas de empaquetado para distribución
-pyinstaller>=6.0.0
+# Herramientas de compilación nativa en C (Reemplazo SOTA de PyInstaller)
+nuitka>=4.0.0
+zstandard>=0.23.0
 pefile>=2024.8.26

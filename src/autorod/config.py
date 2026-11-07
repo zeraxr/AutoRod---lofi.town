@@ -63,7 +63,7 @@ class AppConfig:
 def resolve_config_path(path: str = "config.toml") -> Path:
     """Resuelve la ruta del archivo de configuración, soportando modo congelado (PyInstaller)."""
     p = Path(path)
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
         exe_sibling = Path(sys.executable).parent / path
         if exe_sibling.is_file() or not p.is_file():
             return exe_sibling

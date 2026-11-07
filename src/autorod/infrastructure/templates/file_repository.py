@@ -19,7 +19,7 @@ class FileTemplateRepository(ITemplateRepository):
     def __init__(self, base_dir: Path | str | None = None) -> None:
         if base_dir is None:
             candidate = Path(__file__).resolve().parent.parent.parent / "assets" / "templates"
-            if not candidate.is_dir() and getattr(sys, "frozen", False):
+            if not candidate.is_dir() and (getattr(sys, "frozen", False) or "__compiled__" in globals()):
                 # Soporte para ejecutable empaquetado (onefile / onedir)
                 meipass = getattr(sys, "_MEIPASS", None)
                 if meipass:

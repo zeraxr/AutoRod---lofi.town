@@ -4,7 +4,7 @@ Script Maestro de Empaquetado y Distribución para AutoRod v2.0
 ============================================================
 Automatiza el flujo completo de construcción de releases para Windows:
  1. Validación de entorno, dependencias y assets del proyecto.
- 2. Compilación de binarios mediante PyInstaller (sin UPX, con versión PE y manifiesto).
+ 2. Compilación de binarios nativos en C mediante Nuitka (Arquitectura Anti-Falsos Positivos).
  3. Empaquetado del instalador asistido (.exe) mediante Inno Setup 6 (si está instalado).
  4. Creación del archivo comprimido portable (.zip) con estructura lista para ejecución.
  5. Cálculo y exportación de firmas criptográficas de integridad (SHA-256).
@@ -66,39 +66,64 @@ def find_inno_setup_compiler() -> str | None:
 def clean_artifacts() -> None:
     """Limpia carpetas residuales de compilaciones previas."""
     print("[1/5] Limpiando directorios de salida antiguos...")
-    for dir_path in [BUILD_DIR, DIST_DIR, RELEASE_DIR, ROOT_DIR / "dist_installer"]:
+    for dir_path in [
+        BUILD_DIR,
+        DIST_DIR,
+        RELEASE_DIR,
+        ROOT_DIR / "dist_installer",
+        ROOT_DIR / "main.build",
+        ROOT_DIR / "main.dist",
+        ROOT_DIR / "AutoRod.build",
+        ROOT_DIR / "AutoRod.dist"
+    ]:
         if dir_path.exists():
             shutil.rmtree(dir_path, ignore_errors=True)
     RELEASE_DIR.mkdir(parents=True, exist_ok=True)
     print("   [OK] Carpetas limpias y preparadas.")
 
 
-def run_pyinstaller() -> bool:
-    """Ejecuta PyInstaller con el archivo de especificación oficial."""
-    print("[2/5] Compilando ejecutable con PyInstaller (Modo Seguro: No-UPX + Manifest)...")
-    if not SPEC_FILE.is_file():
-        print(f"[ERROR] Archivo spec no encontrado: {SPEC_FILE}")
-        return False
-
+def run_nuitka() -> bool:
+    """Compila el ejecutable nativo en C con Nuitka (Sin bootloaders genéricos, C nativo real)."""
+    print("[2/5] Compilando ejecutable nativo en C con Nuitka (Arquitectura Anti-Falsos Positivos)...")
+    
     cmd = [
         sys.executable,
         "-m",
-        "PyInstaller",
-        "--noconfirm",
-        "--clean",
-        str(SPEC_FILE),
+        "nuitka",
+        "--standalone",
+        "--assume-yes-for-downloads",
+        "--windows-console-mode=disable",
+        "--enable-plugin=numpy",
+        "--include-package=autorod",
+        "--include-package=flet",
+        "--include-package=flet_desktop",
+        "--include-package=cv2",
+        "--include-package=mss",
+        "--include-data-dir=src/autorod/assets=autorod/assets",
+        "--include-data-files=config.toml=config.toml",
+        f"--windows-icon-from-ico={ROOT_DIR / 'src' / 'autorod' / 'assets' / 'icons' / 'logo.ico'}",
+        "--company-name=AutoRod Open Source Team",
+        "--product-name=AutoRod",
+        f"--product-version={VERSION}.0",
+        f"--file-version={VERSION}.0",
+        "--file-description=AutoRod Fishing Bot for lofi.town",
+        "--copyright=Copyright (c) 2026 AutoRod Open Source Team",
+        "--output-dir=dist",
+        "--output-folder-name=AutoRod",
+        "--output-filename=AutoRod.exe",
+        "main.py",
     ]
 
     try:
-        res = subprocess.run(cmd, cwd=str(ROOT_DIR), check=True)
+        subprocess.run(cmd, cwd=str(ROOT_DIR), check=True)
         exe_path = DIST_DIR / APP_NAME / f"{APP_NAME}.exe"
         if not exe_path.is_file():
             print(f"[ERROR] No se encontro el ejecutable generado en {exe_path}")
             return False
-        print(f"   [OK] Ejecutable compilado exitosamente: {exe_path}")
+        print(f"   [OK] Binario nativo compilado exitosamente con Nuitka: {exe_path}")
         return True
     except subprocess.CalledProcessError as exc:
-        print(f"[ERROR] Error durante la compilacion de PyInstaller: {exc}")
+        print(f"[ERROR] Error durante la compilacion con Nuitka: {exc}")
         return False
 
 
@@ -195,7 +220,7 @@ def main() -> int:
     print(f"INICIANDO PIPELINE DE DISTRIBUCION: {APP_NAME} v{VERSION}")
     print("=" * 70)
 
-    if not run_pyinstaller():
+    if not run_nuitka():
         return 1
 
     if not args.skip_installer:

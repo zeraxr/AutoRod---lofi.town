@@ -12,6 +12,7 @@ Actualización centrada en precisión del minijuego con memoria anti-sacudidas, 
 * **⏱️ Margen de Minijuego Extendido (16s):** Tiempo de gracia ampliado para garantizar la captura sin cortes prematuros en peces legendarios.
 * **🎨 Tema Visual Puro:** Los switches y controles interactivos respetan al 100% el acento seleccionado en Theme Studio, eliminando sangrados verdosos residuales.
 * **🔍 Trazabilidad de ROI en Consola:** Registro explícito en el arranque con las coordenadas exactas de la zona de escaneo y umbrales del motor.
+* **🏗️ Compilación Nativa en C (Nuitka):** Transición arquitectónica oficial: se depreca PyInstaller para compilar AutoRod directamente a código máquina nativo en C, optimizando la ejecución y eliminando falsos positivos en VirusTotal.
 
 ---
 

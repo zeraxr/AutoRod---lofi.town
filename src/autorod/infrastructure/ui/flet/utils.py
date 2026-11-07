@@ -22,7 +22,7 @@ def get_asset_path(relative_path: str) -> Path:
         return cwd_candidate.resolve()
 
     # 3. Soporte para ejecutable congelado
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
         exe_dir = Path(sys.executable).parent
         cand1 = exe_dir / "assets" / relative_path
         if cand1.is_file():

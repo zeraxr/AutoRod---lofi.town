@@ -19,6 +19,7 @@ A continuación, el desglose completo de los cambios del parche.
 ⏱️ Buff de rescate del minijuego: tiempo de gracia extendido de 8s a 16s
 🎨 Aislamiento estricto de acento en Theme Studio (sin sangrado verde)
 🔍 Diagnóstico en arranque con coordenadas de la zona de escaneo (ROI)
+🏗️ Compilación nativa en C con Nuitka (PyInstaller deprecado)
 📦 Distribución exclusiva en formato Portable plug-and-play
 ```
 
@@ -71,10 +72,22 @@ A continuación, el desglose completo de los cambios del parche.
 
 ---
 
+## 🏗️ Reingeniería de Compilación: Nuitka SOTA (PyInstaller Deprecado)
+
+### 🚀 De Bytecode Empaquetado a Código Máquina Real en C
+* **El Problema con PyInstaller:** PyInstaller fue retirado de la arquitectura de AutoRod debido a su arquitectura basada en *bootloaders* genéricos precompilados, los cuales son frecuentemente señalados por motores heurísticos automatizados en VirusTotal (generando falsos positivos por comportamiento).
+* **El Nuevo Motor de Compilación (Nuitka):**
+  * AutoRod ahora se traduce a código fuente en **C** y se compila a código máquina nativo mediante compiladores C/C++ industriales (MSVC en Windows).
+  * **Mayor Rendimiento:** Las llamadas al subsistema de visión por computadora y a las APIs de Windows operan a velocidad de C nativo, reduciendo la latencia de análisis en pantalla.
+  * **Máxima Reputación y Seguridad:** Al carecer de *stubs* o descompresores temporales en memoria, el ejecutable se comporta y analiza como un binario genuino de Windows, ganando la confianza de herramientas de análisis de seguridad.
+
+---
+
 ## 🗑️ Cambios Menores & Ajustes del Meta
 
 | Componente | Estado Parche 2.1 | Estado Parche 2.2 | Razón del Cambio |
 | :--- | :--- | :--- | :--- |
+| **Motor de compilación** | PyInstaller (empaquetador) | **Nuitka (C nativo)** | Erradicar falsos positivos de VirusTotal y elevar la eficiencia. |
 | **Tiempo límite de minijuego** | 8.0 segundos | **16.0 segundos** | Evitar timeouts en peces con animaciones largas. |
 | **Pérdida de cuadros de dial** | 0 cuadros (pérdida inmediata) | **35 cuadros de tolerancia** | Resistencia a destellos y sacudidas gráficas. |
 | **Umbral de impacto en verde** | 40% de área | **35% de área** | Respuesta más ágil al ingresar al sector óptimo. |
