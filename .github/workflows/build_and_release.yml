@@ -44,6 +44,8 @@ jobs:
 
       - name: Build Distribution Packages (Portable Zip and Checksums)
         shell: cmd
+        env:
+          PYTHONPATH: src
         run: |
           python scripts/build_distribution.py --skip-installer
 

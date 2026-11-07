@@ -86,6 +86,9 @@ def run_nuitka() -> bool:
     """Compila el ejecutable nativo en C con Nuitka (Sin bootloaders genéricos, C nativo real)."""
     print("[2/5] Compilando ejecutable nativo en C con Nuitka (Arquitectura Anti-Falsos Positivos)...")
     
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT_DIR / "src")
+
     cmd = [
         sys.executable,
         "-m",
@@ -93,7 +96,6 @@ def run_nuitka() -> bool:
         "--standalone",
         "--assume-yes-for-downloads",
         "--windows-console-mode=disable",
-        "--enable-plugin=numpy",
         "--include-package=autorod",
         "--include-package=flet",
         "--include-package=flet_desktop",
@@ -115,7 +117,7 @@ def run_nuitka() -> bool:
     ]
 
     try:
-        subprocess.run(cmd, cwd=str(ROOT_DIR), check=True)
+        subprocess.run(cmd, cwd=str(ROOT_DIR), env=env, check=True)
         exe_path = DIST_DIR / APP_NAME / f"{APP_NAME}.exe"
         if not exe_path.is_file():
             print(f"[ERROR] No se encontro el ejecutable generado en {exe_path}")
