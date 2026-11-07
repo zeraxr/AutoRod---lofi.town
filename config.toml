@@ -13,8 +13,8 @@ scan_y2 = 700
 pause_on_defocus = false
 minimize_to_tray = true
 open_at_startup = false
-shortcut_toggle = "F8"
-shortcut_stop = "F9"
+shortcut_toggle = "Shift+Q"
+shortcut_stop = "Alt+Q"
 
 # Personalización
 theme_mode = "dark"

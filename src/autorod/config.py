@@ -23,8 +23,8 @@ class AppConfig:
     pause_on_defocus: bool = True                  # Pausar al cambiar de ventana
     minimize_to_tray: bool = True                  # Minimizar a la bandeja del sistema
     open_at_startup: bool = False                  # Abrir al iniciar el sistema
-    shortcut_toggle: str = "F8"                    # Iniciar / Pausar global
-    shortcut_stop: str = "F9"                      # Detener sesión global
+    shortcut_toggle: str = "Shift+Q"                    # Iniciar / Pausar global
+    shortcut_stop: str = "Alt+Q"                      # Detener sesión global
 
     # 3. Personalización y Tema (Figma Personalización)
     theme_mode: str = "dark"                       # 'dark', 'light', 'system'
@@ -93,8 +93,8 @@ def load_config(path: str = "config.toml") -> AppConfig:
         pause_on_defocus=bool(app_data.get("pause_on_defocus", True)),
         minimize_to_tray=bool(app_data.get("minimize_to_tray", True)),
         open_at_startup=bool(app_data.get("open_at_startup", False)),
-        shortcut_toggle=str(app_data.get("shortcut_toggle", "F8")),
-        shortcut_stop=str(app_data.get("shortcut_stop", "F9")),
+        shortcut_toggle=str(app_data.get("shortcut_toggle", "Shift+Q")),
+        shortcut_stop=str(app_data.get("shortcut_stop", "Alt+Q")),
 
         theme_mode=str(app_data.get("theme_mode", "dark")),
         accent_color=str(app_data.get("accent_color", "#5554d9")),

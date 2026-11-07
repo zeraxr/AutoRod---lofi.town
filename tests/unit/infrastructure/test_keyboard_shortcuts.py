@@ -56,20 +56,20 @@ class TestKeyboardShortcuts(unittest.TestCase):
         self.app.toggle_bot_action.assert_called_once()
         self.app.emergency_shutdown.assert_not_called()
 
-    def test_f8_triggers_bot_toggle(self) -> None:
-        """Verifica que 'F8' alterne la sesión de pesca (Figma 72:4524)."""
+    def test_f8_does_not_trigger_action(self) -> None:
+        """Verifica que 'F8' no dispare acciones (atajo no implementado aún)."""
         self.app.toggle_bot_action = MagicMock()
         evt = MagicMock(key="f8", shift=False, alt=False)
         self.app._on_flet_key_event(evt)
-        self.app.toggle_bot_action.assert_called_once()
+        self.app.toggle_bot_action.assert_not_called()
 
-    def test_f9_stops_bot_when_running(self) -> None:
-        """Verifica que 'F9' detenga la sesión activa si está corriendo (Figma 72:4524)."""
+    def test_f9_does_not_trigger_action(self) -> None:
+        """Verifica que 'F9' no dispare acciones (atajo no implementado aún)."""
         self.app._bot_running = True
         self.app.toggle_bot_action = MagicMock()
         evt = MagicMock(key="f9", shift=False, alt=False)
         self.app._on_flet_key_event(evt)
-        self.app.toggle_bot_action.assert_called_once()
+        self.app.toggle_bot_action.assert_not_called()
 
     def test_unpausing_bot_automatically_purges_scale_cache(self) -> None:
         """Verifica que al reanudar el bot se purgue automáticamente la memoria de escala."""

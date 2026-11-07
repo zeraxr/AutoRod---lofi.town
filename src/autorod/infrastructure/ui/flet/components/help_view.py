@@ -111,7 +111,7 @@ class FletHelpView(ft.Container):
 
         self._step1 = _create_step("01", "Elige tu pantalla", "Selecciona Monitor 1 en Configuración.")
         self._step2 = _create_step("02", "Ajusta el objetivo", "Usa el perfil equilibrado en Parámetros.")
-        self._step3 = _create_step("03", "Empieza a pescar", "Abre el juego y pulsa iniciar o F8.")
+        self._step3 = _create_step("03", "Empieza a pescar", "Abre el juego y pulsa iniciar o Shift + Q.")
 
         steps_row = ft.Row(
             controls=[self._step1, self._step2, self._step3],
@@ -163,7 +163,7 @@ class FletHelpView(ft.Container):
             ),
             (
                 "¿Cómo pauso la pesca de inmediato?",
-                "Puedes pulsar el atajo global F8 o Shift + Q en cualquier momento, o hacer clic en el botón pausar en la pantalla de Inicio."
+                "Puedes pulsar el atajo global Shift + Q en cualquier momento para pausar o reanudar, o hacer clic en el botón pausar en la pantalla de Inicio. Para cerrar la aplicación por completo, pulsa Alt + Q."
             )
         ]
 

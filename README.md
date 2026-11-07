@@ -23,7 +23,7 @@ Bot de pesca para [lofi.town](https://lofi.town/) usando visión por computadora
 * **Reward skipping:** Clicks past fish reward cards quickly to keep fishing.
 * **Fast native clicking:** Uses native Windows `SendInput` APIs for fast, millisecond-precise mouse clicks. *(Note: Silent background mode is experimental and in development; the bot actively moves the cursor to click).*
 * **Preview window:** Shows what the bot sees and where it is clicking in real time.
-* **Emergency stop & shortcuts:** Press `F8` to toggle pause, `F9` or `Q` to stop, or `Shift+Q` to pause.
+* **Emergency stop & shortcuts:** Press `Shift+Q` to toggle pause, or `Alt+Q` (Left Alt + Q) for emergency shutdown. *(Note: F8/F9 keys are reserved for future releases)*.
 
 ### Download
 Grab the latest release from the **[Releases](../../releases)** tab:
@@ -67,7 +67,7 @@ python -m unittest discover -s tests
 * **Salto de recompensas:** Pasa rápido las cartas de peces capturados para seguir pescando sin pausas.
 * **Clics rápidos nativos:** Utiliza la API nativa de Windows `SendInput` para clics rápidos y precisos. *(Nota: El modo en segundo plano sin mover el ratón se encuentra en fase experimental; el bot mueve el cursor para hacer clic).*
 * **Visor en vivo:** Muestra en tiempo real qué está detectando el bot en pantalla.
-* **Freno de emergencia y atajos:** Presiona `F8` para pausar/reanudar, `F9` o `Q` para detener al instante, o `Shift+Q` para pausar.
+* **Freno de emergencia y atajos:** Presiona `Shift+Q` para pausar/reanudar, o `Alt+Q` (Left Alt + Q) para cierre de emergencia. *(Nota: Las teclas F8/F9 están reservadas para futuras versiones)*.
 
 ### Descarga
 Descarga la versión más reciente en la pestaña de **[Releases](../../releases)**:

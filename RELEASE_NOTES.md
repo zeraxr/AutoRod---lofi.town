@@ -11,7 +11,7 @@ Actualización centrada en refinamiento visual (Figma 1:1), centro de ayuda in-a
 * **🎯 Calibración Adaptativa en 5 Ciclos:** El motor evalúa 5 ciclos de pesca continuos antes de fijar la escala en memoria $O(1)$, reduciendo la latencia a <2 ms.
 * **⏱️ Watchdog de Inactividad (90s):** Auto-recalibración inteligente si mueves, redimensionas o cambias el zoom del navegador.
 * **🎨 Theme Studio Refinado:** Conmutación formal Claro/Oscuro y 6 paletas de acento optimizadas con estándar WCAG 2.2 AA (>4.5:1).
-* **⌨️ Atajos Globales de Teclado:** Control rápido con `F8` (Pausar/Reanudar) y `F9` (Detener), además del freno de emergencia `Q`.
+* **⌨️ Atajos Globales de Teclado:** Control rápido con `Shift + Q` (Pausar/Reanudar) y `Alt + Q` (Cierre inmediato de emergencia). *(Teclas F8/F9 en desarrollo para futuras versiones)*.
 * **🛡️ Resiliencia de Captura:** Recuperación automática ante bloqueos temporales del Administrador de Ventanas (DWM) sin interrupciones.
 * **🗑️ Simplificación de Interfaz:** Pestaña "Parámetros" deprecada y consolidada en Configuración para blindar las constantes del motor.
 

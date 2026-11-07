@@ -565,8 +565,6 @@ class FletMainApp:
     def _start_global_emergency_listener(self) -> None:
         def _watcher() -> None:
             q_was_down = False
-            f8_was_down = False
-            f9_was_down = False
             while not self._stop_event.is_set():
                 try:
                     q_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x51) & 0x8000)
@@ -579,8 +577,6 @@ class FletMainApp:
                         (ctypes.windll.user32.GetAsyncKeyState(0xA4) & 0x8000) or  # VK_LMENU (Left Alt)
                         (ctypes.windll.user32.GetAsyncKeyState(0x12) & 0x8000)     # VK_MENU (Alt)
                     )
-                    f8_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x77) & 0x8000)
-                    f9_pressed = bool(ctypes.windll.user32.GetAsyncKeyState(0x78) & 0x8000)
 
                     # Atajo global Q (Shift+Q para pausa, Left Alt+Q para apagado)
                     if q_pressed and not q_was_down:
@@ -594,23 +590,6 @@ class FletMainApp:
                             break
                     elif not q_pressed:
                         q_was_down = False
-
-                    # Atajo global F8 (Iniciar / pausar sesión según Figma 72:4524)
-                    if f8_pressed and not f8_was_down:
-                        f8_was_down = True
-                        logger.info("[HOTKEY] Iniciar / pausar sesión accionado vía hotkey global 'F8'.")
-                        self.toggle_bot_action()
-                    elif not f8_pressed:
-                        f8_was_down = False
-
-                    # Atajo global F9 (Detener sesión activa según Figma 72:4524)
-                    if f9_pressed and not f9_was_down:
-                        f9_was_down = True
-                        logger.info("[HOTKEY] Detener sesión activa accionado vía hotkey global 'F9'.")
-                        if self._bot_running:
-                            self.toggle_bot_action()
-                    elif not f9_pressed:
-                        f9_was_down = False
 
                 except Exception:
                     pass
@@ -638,11 +617,7 @@ class FletMainApp:
                 elif alt:
                     logger.warning("Cierre de emergencia accionado vía evento Flet 'LEFT ALT + Q'.")
                     self.emergency_shutdown()
-            elif key == "f8":
-                self.toggle_bot_action()
-            elif key == "f9":
-                if self._bot_running:
-                    self.toggle_bot_action()
+
             elif key in ("1", "2", "3", "4", "5", "6"):
                 tab_map = {
                     "1": "dashboard",
@@ -678,7 +653,7 @@ class FletMainApp:
             if self._bot_running:
                 self.viewport.card_motor.update_val("BOT ACTIVO", color=self.theme_mgr.current.primary, sub="Inyección activada")
             else:
-                self.viewport.card_motor.update_val("PAUSADO [Shift+Q / F8]", color="#f59e0b", sub="En espera para iniciar")
+                self.viewport.card_motor.update_val("PAUSADO [Shift+Q]", color="#f59e0b", sub="En espera para iniciar")
             self.viewport.set_bot_running(self._bot_running)
 
         for v in (self.telemetry_view, self.settings_view):
@@ -692,7 +667,7 @@ class FletMainApp:
                 self._action_btn.set_text("INICIAR BOT", icon=ft.Icons.PLAY_ARROW_ROUNDED)
 
         if self.telemetry_view:
-            state_msg = "Acciones del bot INICIADAS [Shift+Q / F8]." if self._bot_running else "Acciones del bot PAUSADAS [Shift+Q / F8]."
+            state_msg = "Acciones del bot INICIADAS [Shift+Q]." if self._bot_running else "Acciones del bot PAUSADAS [Shift+Q]."
             self.telemetry_view.append_log(state_msg)
 
         if self.page:

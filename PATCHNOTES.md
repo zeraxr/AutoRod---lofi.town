@@ -17,7 +17,7 @@ A continuación, todos los detalles del parche.
 🎨 Barra lateral Figma 1:1 con estilo píldora activa y modo Claro/Oscuro
 ⚡ Calibración dinámica en 5 ciclos con fijación O(1) en memoria
 🛡️ Watchdog de 90s para auto-recalibración ante cambios de ventana
-⌨️ Atajos de teclado globales configurables (F8 / F9 / Q)
+⌨️ Atajos de teclado globales (Shift+Q / Alt+Q)
 🗑️ Pestaña 'Parámetros' deprecada y consolidada en Configuración
 ```
 
@@ -42,7 +42,9 @@ A continuación, todos los detalles del parche.
 * **6 Acentos de Élite:** Paletas ajustadas (*Cyberpunk Cyan, Crimson Pulse, GitHub Green, Royal Purple, Solar Amber, Pure White*) garantizando cumplimiento de contraste **WCAG 2.2 AA / AAA** (> 4.5:1).
 
 ### ⌨️ Atajos de Teclado Globales (Nuevo)
-* Ahora puedes pausar o reanudar el ciclo de pesca con `F8` y detenerlo con `F9` (además del freno de emergencia nativo `Q` / `Shift+Q`).
+* **Pausar / Reanudar:** Presiona `Shift + Q` en cualquier momento para alternar el ciclo de pesca sin perder la calibración.
+* **Cierre de Emergencia:** Presiona `Alt + Q` (Left Alt + Q) para forzar el apagado inmediato y seguro de la aplicación.
+* *Nota:* Los atajos en teclas de función (`F8` y `F9`) se encuentran actualmente en cola de desarrollo y se incorporarán en versiones futuras.
 * Atajos capturados a nivel de sistema operativo para responder al instante incluso si la ventana de AutoRod está minimizada.
 
 ---

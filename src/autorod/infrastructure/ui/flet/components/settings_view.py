@@ -243,9 +243,9 @@ class FletSettingsView(ft.Container):
                         controls=[
                             ft.Row(
                                 controls=[
-                                    ft.Text("Iniciar / pausar", size=12, color="#8f99b3"),
+                                    ft.Text("Pausar / Reanudar", size=12, color="#8f99b3"),
                                     ft.Container(
-                                        content=ft.Text("F8", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                        content=ft.Text("Shift + Q", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
                                         bgcolor="#141a2a" if self._tokens.mode == "dark" else "#f2f3f8",
                                         border=ft.Border.all(1, "#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb"),
                                         border_radius=6,
@@ -258,9 +258,9 @@ class FletSettingsView(ft.Container):
                             ),
                             ft.Row(
                                 controls=[
-                                    ft.Text("Detener sesión", size=12, color="#8f99b3"),
+                                    ft.Text("Cerrar AutoRod", size=12, color="#8f99b3"),
                                     ft.Container(
-                                        content=ft.Text("F9", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
+                                        content=ft.Text("Alt + Q", size=12, color="#ffffff" if self._tokens.mode == "dark" else self._tokens.text_primary),
                                         bgcolor="#141a2a" if self._tokens.mode == "dark" else "#f2f3f8",
                                         border=ft.Border.all(1, "#2a2f3a" if self._tokens.mode == "dark" else "#e5e7eb"),
                                         border_radius=6,
